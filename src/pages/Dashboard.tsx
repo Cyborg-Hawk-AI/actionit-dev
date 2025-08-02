@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Users, TrendingUp, CalendarCheck, Zap, Search, Bot, ExternalLink, Loader2 } from 'lucide-react';
+import { Calendar, Clock, Users, TrendingUp, CalendarCheck, Zap, Search, Bot, ExternalLink, Loader2, BarChart3, Activity, Target, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,6 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [showJoinModal, setShowJoinModal] = useState(false);
-
 
   const { 
     meetings, 
@@ -177,13 +176,15 @@ const Dashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            ))}
+      <div className="min-h-screen bg-gradient-to-br from-gray-50/50 to-blue-50/30 dark:from-gray-950/50 dark:to-blue-950/30">
+        <div className="container mx-auto p-6">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-32 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -191,17 +192,20 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50/50 to-blue-50/30 dark:from-gray-950/50 dark:to-blue-950/30">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50/50 via-blue-50/30 to-indigo-50/20 dark:from-gray-950/50 dark:via-blue-950/30 dark:to-indigo-950/20">
       <div className="container mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
+        {/* Enhanced Header with Apple-inspired design */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full p-2">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sf-display">
                 Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}
               </h1>
             </div>
-            <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
+            <p className="text-base text-gray-600 dark:text-gray-400 sf-text">
               {format(new Date(), 'EEEE, MMMM d, yyyy')} • {format(new Date(), 'h:mm a')}
             </p>
           </div>
@@ -212,7 +216,7 @@ const Dashboard = () => {
             />
             <Button 
               onClick={() => refreshData()}
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
             >
               <Calendar className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Refresh Calendar</span>
@@ -222,7 +226,7 @@ const Dashboard = () => {
         </div>
 
         {error && (
-          <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+          <Card className="border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-950/20 backdrop-blur-sm rounded-xl">
             <CardContent className="pt-6">
               <p className="text-red-700 dark:text-red-300">{error}</p>
             </CardContent>
@@ -243,17 +247,20 @@ const Dashboard = () => {
 
         {!searchQuery && (
           <>
-            {/* Stats Overview */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-              <Card className="gradient-calendar hover:shadow-md transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs md:text-sm font-medium text-blue-900 dark:text-blue-100">
+            {/* Enhanced Stats Overview with functional color coding */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              {/* Calendar & Meeting Colors */}
+              <Card className="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/30 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/10 backdrop-blur-sm border-blue-200/50 dark:border-blue-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-sm font-semibold text-blue-900 dark:text-blue-100">
                     Today's Meetings
                   </CardTitle>
-                  <CalendarCheck className="h-3 w-3 md:h-4 md:w-4 text-blue-600 dark:text-blue-400" />
+                  <div className="bg-blue-100 dark:bg-blue-900/30 rounded-full p-2">
+                    <CalendarCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">
+                  <div className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">
                     {todayMeetings.length}
                   </div>
                   <p className="text-xs text-blue-700/70 dark:text-blue-300/70">
@@ -262,35 +269,44 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              <Card className="gradient-insights hover:shadow-md transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs md:text-sm font-medium text-green-900 dark:text-green-100">
+              {/* Insights & Analytics Colors */}
+              <Card className="bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-cyan-50/30 dark:from-emerald-950/20 dark:via-teal-950/10 dark:to-cyan-950/10 backdrop-blur-sm border-emerald-200/50 dark:border-emerald-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
                     This Week
                   </CardTitle>
-                  <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 dark:text-green-400" />
+                  <div className="bg-emerald-100 dark:bg-emerald-900/30 rounded-full p-2">
+                    <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl md:text-2xl font-bold text-green-900 dark:text-green-100">
+                  <div className="text-2xl md:text-3xl font-bold text-emerald-900 dark:text-emerald-100 mb-2">
                     {thisWeekMeetings.length}
                   </div>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <Progress value={weeklyProgress} className="flex-1 h-1" />
-                    <span className="text-xs text-green-700/70 dark:text-green-300/70">
-                      {weeklyProgress}%
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-emerald-700/70 dark:text-emerald-300/70">Progress</span>
+                      <span className="text-emerald-700/70 dark:text-emerald-300/70 font-medium">
+                        {weeklyProgress}%
+                      </span>
+                    </div>
+                    <Progress value={weeklyProgress} className="h-2 bg-emerald-100 dark:bg-emerald-900/30" />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="gradient-recent hover:shadow-md transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs md:text-sm font-medium text-purple-900 dark:text-purple-100">
+              {/* Recent Activity Colors */}
+              <Card className="bg-gradient-to-br from-purple-50/80 via-violet-50/40 to-fuchsia-50/30 dark:from-purple-950/20 dark:via-violet-950/10 dark:to-fuchsia-950/10 backdrop-blur-sm border-purple-200/50 dark:border-purple-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-sm font-semibold text-purple-900 dark:text-purple-100">
                     Key Insights
                   </CardTitle>
-                  <Zap className="h-3 w-3 md:h-4 md:w-4 text-purple-600 dark:text-purple-400" />
+                  <div className="bg-purple-100 dark:bg-purple-900/30 rounded-full p-2">
+                    <Zap className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-xl md:text-2xl font-bold text-purple-900 dark:text-purple-100">
+                  <div className="text-2xl md:text-3xl font-bold text-purple-900 dark:text-purple-100 mb-1">
                     {insightsArray.length}
                   </div>
                   <p className="text-xs text-purple-700/70 dark:text-purple-300/70">
@@ -299,15 +315,18 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              <Card className="gradient-status hover:shadow-md transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs md:text-sm font-medium text-amber-900 dark:text-amber-100">
+              {/* System Status Colors */}
+              <Card className="bg-gradient-to-br from-amber-50/80 via-orange-50/40 to-red-50/30 dark:from-amber-950/20 dark:via-orange-950/10 dark:to-red-950/10 backdrop-blur-sm border-amber-200/50 dark:border-amber-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-sm font-semibold text-amber-900 dark:text-amber-100">
                     Next Meeting
                   </CardTitle>
-                  <Clock className="h-3 w-3 md:h-4 md:w-4 text-amber-600 dark:text-amber-400" />
+                  <div className="bg-amber-100 dark:bg-amber-900/30 rounded-full p-2">
+                    <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-lg md:text-xl font-bold text-amber-900 dark:text-amber-100">
+                  <div className="text-xl md:text-2xl font-bold text-amber-900 dark:text-amber-100 mb-1">
                     {nextMeeting ? getTimeUntilMeeting(nextMeeting) : 'None'}
                   </div>
                   {nextMeeting && (
@@ -319,7 +338,7 @@ const Dashboard = () => {
               </Card>
             </div>
 
-            {/* Main Content Grid */}
+            {/* Enhanced Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
               {/* Left Column - Calendar and Recent Meetings */}
               <div className="lg:col-span-2 space-y-6">
@@ -331,6 +350,7 @@ const Dashboard = () => {
                   onJoinMeetingWithBot={handleJoinWithBot}
                   onSetJoinMode={handleSetJoinMode}
                   onUpdateMeeting={updateMeeting}
+                  className="glass-card"
                 />
                 
                 <RecentMeetingsCard 
@@ -351,16 +371,19 @@ const Dashboard = () => {
                   } : null}
                 />
                 
-                {/* Quick Actions */}
-                <Card>
+                {/* Enhanced Quick Actions with Apple-inspired design */}
+                <Card className="glass-card border-purple-200/50 dark:border-purple-800/30">
                   <CardHeader>
-                    <CardTitle className="text-lg">Quick Actions</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Target className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      Quick Actions
+                    </CardTitle>
                     <CardDescription>Common tasks and shortcuts</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <Button 
                       variant="outline" 
-                      className="w-full justify-start" 
+                      className="w-full justify-start hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all duration-200 hover:scale-[1.02]" 
                       asChild
                     >
                       <Link to="/app/calendar">
@@ -371,7 +394,7 @@ const Dashboard = () => {
                     
                     <Button 
                       variant="outline" 
-                      className="w-full justify-start" 
+                      className="w-full justify-start hover:bg-purple-50 dark:hover:bg-purple-950/20 transition-all duration-200 hover:scale-[1.02]" 
                       onClick={() => setShowJoinModal(true)}
                     >
                       <Bot className="mr-2 h-4 w-4" />
@@ -380,7 +403,7 @@ const Dashboard = () => {
                     
                     <Button 
                       variant="outline" 
-                      className="w-full justify-start" 
+                      className="w-full justify-start hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all duration-200 hover:scale-[1.02]" 
                       onClick={() => refreshData()}
                     >
                       <Zap className="mr-2 h-4 w-4" />
@@ -389,7 +412,7 @@ const Dashboard = () => {
                     
                     <Button 
                       variant="outline" 
-                      className="w-full justify-start" 
+                      className="w-full justify-start hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all duration-200 hover:scale-[1.02]" 
                       asChild
                     >
                       <Link to="/app/settings">
@@ -397,6 +420,36 @@ const Dashboard = () => {
                         Manage Settings
                       </Link>
                     </Button>
+                  </CardContent>
+                </Card>
+
+                {/* New Analytics Card */}
+                <Card className="glass-card border-emerald-200/50 dark:border-emerald-800/30">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                      Meeting Analytics
+                    </CardTitle>
+                    <CardDescription>Your meeting performance insights</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Weekly Completion</span>
+                      <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                        {weeklyProgress}%
+                      </span>
+                    </div>
+                    <Progress value={weeklyProgress} className="h-2" />
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Total Meetings</span>
+                      <span className="text-sm font-medium">{meetings.length}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">This Week</span>
+                      <span className="text-sm font-medium">{thisWeekMeetings.length}</span>
+                    </div>
                   </CardContent>
                 </Card>
               </div>

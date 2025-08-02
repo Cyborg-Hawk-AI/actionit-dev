@@ -17,7 +17,8 @@ import {
   Calendar as CalendarIcon,
   Headphones,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
 import { format, parseISO, isToday, isSameDay } from 'date-fns';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -98,15 +99,20 @@ export function DashboardCalendarCard({
   };
   
   return (
-    <Card className={cn("overflow-hidden h-full", className)}>
-      <CardHeader className="bg-card border-b">
+    <Card className={cn("overflow-hidden h-full bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/30 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/10 backdrop-blur-sm border-blue-200/50 dark:border-blue-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl", className)}>
+      <CardHeader className="bg-gradient-to-r from-blue-100/50 to-indigo-100/50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b border-blue-200/30 dark:border-blue-800/20">
         <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>
-              {totalMeetings !== undefined ? `${totalMeetings} upcoming` : 
-                `${meetings.length} meeting${meetings.length !== 1 ? 's' : ''} scheduled`}
-            </CardDescription>
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full p-2">
+              <CalendarIcon className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100">{title}</CardTitle>
+              <CardDescription className="text-blue-700/70 dark:text-blue-300/70">
+                {totalMeetings !== undefined ? `${totalMeetings} upcoming` : 
+                  `${meetings.length} meeting${meetings.length !== 1 ? 's' : ''} scheduled`}
+              </CardDescription>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -114,15 +120,17 @@ export function DashboardCalendarCard({
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="flex flex-col items-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mb-2"></div>
-              <p className="text-sm text-muted-foreground">Loading meetings...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mb-2"></div>
+              <p className="text-sm text-blue-700/70 dark:text-blue-300/70">Loading meetings...</p>
             </div>
           </div>
         ) : meetings.length === 0 ? (
           <div className="text-center py-10">
-            <CalendarIcon className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
-            <h4 className="text-base font-medium mb-1">No meetings scheduled</h4>
-            <p className="text-sm text-muted-foreground">Enjoy your free time!</p>
+            <div className="bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              <CalendarIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h4 className="text-base font-medium mb-1 text-blue-900 dark:text-blue-100">No meetings scheduled</h4>
+            <p className="text-sm text-blue-700/70 dark:text-blue-300/70">Enjoy your free time!</p>
           </div>
         ) : (
           <ScrollArea className="max-h-[400px]">
@@ -135,30 +143,31 @@ export function DashboardCalendarCard({
                   <div 
                     key={meeting.id} 
                     className={cn(
-                      "border-b last:border-0 p-3 hover:bg-muted/10 transition-colors cursor-pointer",
-                      isNow && "bg-primary/5"
+                      "border-b border-blue-200/30 dark:border-blue-800/20 last:border-0 p-4 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-all duration-200 cursor-pointer",
+                      isNow && "bg-gradient-to-r from-green-50/50 to-emerald-50/50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200/50 dark:border-green-800/30"
                     )}
                     onClick={() => handleOpenMeetingModal(meeting)}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
                         <div 
-                          className="w-2.5 h-2.5 rounded-full" 
+                          className="w-3 h-3 rounded-full shadow-sm" 
                           style={{ backgroundColor: meeting.calendar_color || '#4285F4' }}
                         />
-                        <h4 className="font-medium truncate">{meeting.title}</h4>
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 truncate">{meeting.title}</h4>
                       </div>
                       
                       {isNow && (
-                        <Badge className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
+                        <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-sm">
+                          <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></div>
                           Now
                         </Badge>
                       )}
                     </div>
                     
-                    <div className="flex items-center flex-wrap gap-2 text-xs text-muted-foreground mb-2">
+                    <div className="flex items-center flex-wrap gap-3 text-sm text-blue-700/70 dark:text-blue-300/70 mb-3">
                       <div className="flex items-center">
-                        <Clock className="w-3 h-3 mr-1" />
+                        <Clock className="w-4 h-4 mr-1.5" />
                         <span>
                           {format(parseISO(meeting.start_time), 'h:mm a')} - {format(parseISO(meeting.end_time), 'h:mm a')}
                         </span>
@@ -166,20 +175,20 @@ export function DashboardCalendarCard({
                       
                       {meeting.attendees_count > 0 && (
                         <div className="flex items-center">
-                          <Users className="w-3 h-3 mr-1" />
+                          <Users className="w-4 h-4 mr-1.5" />
                           <span>{meeting.attendees_count}</span>
                         </div>
                       )}
                       
                       {!isToday(parseISO(meeting.start_time)) && (
-                        <div className="text-xs px-1.5 py-0.5 bg-muted/60 rounded-full">
+                        <div className="text-xs px-2 py-1 bg-blue-100/50 dark:bg-blue-900/30 rounded-full text-blue-700 dark:text-blue-300">
                           {format(parseISO(meeting.start_time), 'EEE, MMM d')}
                         </div>
                       )}
                     </div>
                     
                     {meeting.meeting_url && (
-                      <div className="flex flex-wrap gap-2 mt-1">
+                      <div className="flex flex-wrap gap-2">
                         <TooltipProvider>
                           <ToggleGroup 
                             type="single" 
@@ -190,7 +199,7 @@ export function DashboardCalendarCard({
                           >
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <ToggleGroupItem value="audio_only" size="sm" onClick={(e) => e.stopPropagation()}>
+                                <ToggleGroupItem value="audio_only" size="sm" onClick={(e) => e.stopPropagation()} className="hover:bg-blue-100 dark:hover:bg-blue-900/30">
                                   <Headphones className="h-3 w-3" />
                                 </ToggleGroupItem>
                               </TooltipTrigger>
@@ -201,7 +210,7 @@ export function DashboardCalendarCard({
                             
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <ToggleGroupItem value="speaker_view" size="sm" onClick={(e) => e.stopPropagation()}>
+                                <ToggleGroupItem value="speaker_view" size="sm" onClick={(e) => e.stopPropagation()} className="hover:bg-blue-100 dark:hover:bg-blue-900/30">
                                   <Video className="h-3 w-3" />
                                 </ToggleGroupItem>
                               </TooltipTrigger>
@@ -215,7 +224,7 @@ export function DashboardCalendarCard({
                         <Button 
                           size="sm" 
                           variant="secondary" 
-                          className="h-7 text-xs"
+                          className="h-7 text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
                           onClick={(e) => {
                             e.stopPropagation();
                             onJoinMeeting(meeting.meeting_url as string);
@@ -228,7 +237,7 @@ export function DashboardCalendarCard({
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          className="h-7 text-xs"
+                          className="h-7 text-xs border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all duration-200 hover:scale-[1.02]"
                           onClick={(e) => {
                             e.stopPropagation();
                             onJoinMeetingWithBot(meeting.id);
@@ -254,24 +263,29 @@ export function DashboardCalendarCard({
         )}
       </CardContent>
 
-      {/* Meeting Details Modal */}
+      {/* Enhanced Meeting Details Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-blue-200/50 dark:border-blue-800/30">
           {selectedMeeting && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-xl">{selectedMeeting.title}</DialogTitle>
-                <DialogDescription>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <div className="flex items-center text-muted-foreground">
-                      <Clock className="w-4 h-4 mr-1.5" />
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full p-2">
+                    <CalendarIcon className="h-4 w-4 text-white" />
+                  </div>
+                  <DialogTitle className="text-xl text-blue-900 dark:text-blue-100">{selectedMeeting.title}</DialogTitle>
+                </div>
+                <DialogDescription className="text-blue-700/70 dark:text-blue-300/70">
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    <div className="flex items-center">
+                      <Clock className="w-4 h-4 mr-1.5 text-blue-600 dark:text-blue-400" />
                       <span className="text-sm">
                         {format(parseISO(selectedMeeting.start_time), 'h:mm a')} - {format(parseISO(selectedMeeting.end_time), 'h:mm a')}
                       </span>
                     </div>
                     
-                    <div className="flex items-center text-muted-foreground">
-                      <CalendarIcon className="w-4 h-4 mr-1.5" />
+                    <div className="flex items-center">
+                      <CalendarIcon className="w-4 h-4 mr-1.5 text-blue-600 dark:text-blue-400" />
                       <span className="text-sm">{format(parseISO(selectedMeeting.start_time), 'EEEE, MMMM d')}</span>
                     </div>
                   </div>
@@ -280,43 +294,42 @@ export function DashboardCalendarCard({
               
               <div className="space-y-4 my-2">
                 {/* Calendar info */}
-                <div className="flex items-center">
+                <div className="flex items-center p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg">
                   <div 
-                    className="w-3 h-3 rounded-full mr-2" 
+                    className="w-3 h-3 rounded-full mr-3 shadow-sm" 
                     style={{ backgroundColor: selectedMeeting.calendar_color || '#4285F4' }}
                   ></div>
-                  <span className="text-sm">{selectedMeeting.calendar_name || 'Calendar'}</span>
+                  <span className="text-sm font-medium text-blue-900 dark:text-blue-100">{selectedMeeting.calendar_name || 'Calendar'}</span>
                 </div>
                 
                 {/* Attendees */}
                 {selectedMeeting.attendees_count > 0 && (
-                  <div className="flex items-start">
-                    <Users className="w-4 h-4 mt-0.5 mr-2 text-muted-foreground" />
+                  <div className="flex items-start p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg">
+                    <Users className="w-4 h-4 mt-0.5 mr-3 text-blue-600 dark:text-blue-400" />
                     <div>
-                      <p className="text-sm">{selectedMeeting.attendees_count} {selectedMeeting.attendees_count === 1 ? 'attendee' : 'attendees'}</p>
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">{selectedMeeting.attendees_count} {selectedMeeting.attendees_count === 1 ? 'attendee' : 'attendees'}</p>
                     </div>
                   </div>
                 )}
                 
                 {/* Status */}
-                <div className="flex items-center">
-                  <span className="text-sm font-medium mr-2">Status:</span>
+                <div className="flex items-center p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg">
+                  <span className="text-sm font-medium mr-3 text-blue-900 dark:text-blue-100">Status:</span>
                   <Badge className={cn(
-                    isMeetingNow(selectedMeeting) 
-                      ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100" 
-                      : "bg-muted text-muted-foreground"
+                    "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-sm",
+                    !isMeetingNow(selectedMeeting) && "bg-gradient-to-r from-blue-500 to-indigo-500"
                   )}>
                     {getMeetingStatus(selectedMeeting)}
                   </Badge>
                 </div>
                 
-                <Separator />
+                <Separator className="bg-blue-200/50 dark:bg-blue-800/30" />
                 
                 {/* Bot settings */}
                 {onUpdateMeeting && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="auto-join" className="text-sm font-medium">Auto-join with bot</label>
+                    <div className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg">
+                      <label htmlFor="auto-join" className="text-sm font-medium text-blue-900 dark:text-blue-100">Auto-join with bot</label>
                       <Switch 
                         id="auto-join" 
                         checked={selectedMeeting.auto_join}
@@ -324,8 +337,8 @@ export function DashboardCalendarCard({
                       />
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="auto-record" className="text-sm font-medium">Record meeting</label>
+                    <div className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg">
+                      <label htmlFor="auto-record" className="text-sm font-medium text-blue-900 dark:text-blue-100">Record meeting</label>
                       <Switch 
                         id="auto-record" 
                         checked={selectedMeeting.auto_record}
@@ -333,19 +346,19 @@ export function DashboardCalendarCard({
                       />
                     </div>
                     
-                    <div>
-                      <p className="text-sm font-medium mb-2">Bot join mode</p>
+                    <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg">
+                      <p className="text-sm font-medium mb-3 text-blue-900 dark:text-blue-100">Bot join mode</p>
                       <ToggleGroup 
                         type="single" 
                         value={meetingJoinModes[selectedMeeting.id] || 'speaker_view'} 
                         onValueChange={(value) => value && onSetJoinMode(selectedMeeting.id, value as JoinMode)}
                         className="justify-start"
                       >
-                        <ToggleGroupItem value="audio_only" aria-label="Audio Only">
+                        <ToggleGroupItem value="audio_only" aria-label="Audio Only" className="hover:bg-blue-100 dark:hover:bg-blue-900/30">
                           <Headphones className="h-4 w-4 mr-1" />
                           Audio Only
                         </ToggleGroupItem>
-                        <ToggleGroupItem value="speaker_view" aria-label="Video">
+                        <ToggleGroupItem value="speaker_view" aria-label="Video" className="hover:bg-blue-100 dark:hover:bg-blue-900/30">
                           <Video className="h-4 w-4 mr-1" />
                           Video
                         </ToggleGroupItem>
@@ -360,7 +373,7 @@ export function DashboardCalendarCard({
                   <>
                     <Button 
                       variant="outline" 
-                      className="w-full sm:w-auto"
+                      className="w-full sm:w-auto border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all duration-200 hover:scale-[1.02]"
                       onClick={() => onJoinMeeting(selectedMeeting.meeting_url as string)}
                     >
                       <ExternalLink className="w-4 h-4 mr-1.5" />
@@ -368,7 +381,7 @@ export function DashboardCalendarCard({
                     </Button>
                     
                     <Button 
-                      className="w-full sm:w-auto"
+                      className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
                       onClick={() => onJoinMeetingWithBot(selectedMeeting.id)}
                       disabled={joiningMeetings[selectedMeeting.id]}
                     >
