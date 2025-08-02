@@ -18,6 +18,12 @@ import JoinMeetingModal from '@/components/dashboard/JoinMeetingModal';
 import SearchInput from '@/components/dashboard/SearchInput';
 import SearchResults from '@/components/dashboard/SearchResults';
 import { LatestMeetingSummary } from '@/components/dashboard/LatestMeetingSummary';
+import { ActionItemsCard } from '@/components/dashboard/ActionItemsCard';
+import { InsightsTimelineCard } from '@/components/dashboard/InsightsTimelineCard';
+import { BotStatusCard } from '@/components/dashboard/BotStatusCard';
+import { AttendeeIntelligenceCard } from '@/components/dashboard/AttendeeIntelligenceCard';
+import { MeetingComparisonCard } from '@/components/dashboard/MeetingComparisonCard';
+import { OfflineModeCard } from '@/components/dashboard/OfflineModeCard';
 import { Meeting } from '@/services/calendarService';
 import { JoinMode } from '@/services/recallService';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
@@ -46,6 +52,198 @@ const Dashboard = () => {
   const insightsArray = insights ? [insights] : [];
 
   useGoogleAnalytics();
+
+  // Mock data for new dashboard components
+  const mockActionItems = [
+    {
+      id: '1',
+      title: 'Follow up with client on proposal',
+      description: 'Send updated proposal to ABC Corp by Friday',
+      status: 'pending' as const,
+      dueDate: '2024-01-20',
+      assignedTo: 'John Doe',
+      meetingId: 'meeting-1',
+      meetingTitle: 'Client Review Meeting',
+      priority: 'high' as const,
+      createdAt: '2024-01-15T10:00:00Z'
+    },
+    {
+      id: '2',
+      title: 'Schedule team retrospective',
+      description: 'Plan quarterly team retrospective meeting',
+      status: 'completed' as const,
+      dueDate: '2024-01-18',
+      assignedTo: 'Jane Smith',
+      meetingId: 'meeting-2',
+      meetingTitle: 'Sprint Planning',
+      priority: 'medium' as const,
+      createdAt: '2024-01-14T14:00:00Z'
+    },
+    {
+      id: '3',
+      title: 'Review budget allocation',
+      description: 'Analyze Q1 budget vs actual spending',
+      status: 'snoozed' as const,
+      dueDate: '2024-01-25',
+      assignedTo: 'Mike Johnson',
+      meetingId: 'meeting-3',
+      meetingTitle: 'Budget Review',
+      priority: 'low' as const,
+      createdAt: '2024-01-13T09:00:00Z'
+    }
+  ];
+
+  const mockInsights = [
+    {
+      id: '1',
+      title: 'Customer feedback indicates need for mobile app',
+      description: 'Multiple clients mentioned mobile accessibility as a priority',
+      type: 'decision' as const,
+      tags: ['customer', 'mobile', 'priority'],
+      meetingId: 'meeting-1',
+      meetingTitle: 'Product Strategy Meeting',
+      meetingDate: '2024-01-15T10:00:00Z',
+      attendees: ['John Doe', 'Jane Smith', 'Client Rep'],
+      status: 'active' as const,
+      createdAt: '2024-01-15T12:00:00Z'
+    },
+    {
+      id: '2',
+      title: 'Technical debt needs immediate attention',
+      description: 'Legacy system causing 30% performance degradation',
+      type: 'blocker' as const,
+      tags: ['technical', 'blocker', 'performance'],
+      meetingId: 'meeting-2',
+      meetingTitle: 'Engineering Standup',
+      meetingDate: '2024-01-14T09:00:00Z',
+      attendees: ['Dev Team', 'Tech Lead'],
+      status: 'pending' as const,
+      createdAt: '2024-01-14T10:00:00Z'
+    }
+  ];
+
+  const mockBotMeetings = [
+    {
+      id: '1',
+      title: 'Weekly Team Sync',
+      startTime: '2024-01-20T10:00:00Z',
+      endTime: '2024-01-20T11:00:00Z',
+      autoJoin: true,
+      autoRecord: true,
+      joinMode: 'audio_only' as const,
+      status: 'scheduled' as const
+    },
+    {
+      id: '2',
+      title: 'Client Presentation',
+      startTime: '2024-01-21T14:00:00Z',
+      endTime: '2024-01-21T15:00:00Z',
+      autoJoin: true,
+      autoRecord: false,
+      joinMode: 'speaker_view' as const,
+      status: 'scheduled' as const
+    }
+  ];
+
+  const mockCollaborators = [
+    {
+      id: '1',
+      name: 'John Doe',
+      email: 'john@company.com',
+      avatar: undefined,
+      meetingCount: 15,
+      lastMeeting: '2024-01-15T10:00:00Z',
+      totalDuration: 1200,
+      crmData: {
+        company: 'ABC Corp',
+        dealValue: 50000,
+        dealStage: 'negotiation',
+        ticketCount: 3
+      }
+    },
+    {
+      id: '2',
+      name: 'Jane Smith',
+      email: 'jane@company.com',
+      avatar: undefined,
+      meetingCount: 12,
+      lastMeeting: '2024-01-14T14:00:00Z',
+      totalDuration: 900,
+      crmData: {
+        company: 'XYZ Inc',
+        dealValue: 75000,
+        dealStage: 'proposal',
+        ticketCount: 1
+      }
+    }
+  ];
+
+  const mockMeetingComparison = {
+    id: '1',
+    currentMeeting: {
+      id: 'current-1',
+      title: 'Weekly Team Sync',
+      date: '2024-01-15T10:00:00Z',
+      duration: 60,
+      attendees: 8,
+      decisions: 3,
+      actionItems: 5
+    },
+    previousMeetings: [
+      {
+        id: 'prev-1',
+        title: 'Weekly Team Sync',
+        date: '2024-01-08T10:00:00Z',
+        duration: 75,
+        attendees: 7,
+        decisions: 2,
+        actionItems: 4
+      },
+      {
+        id: 'prev-2',
+        title: 'Weekly Team Sync',
+        date: '2024-01-01T10:00:00Z',
+        duration: 90,
+        attendees: 9,
+        decisions: 4,
+        actionItems: 6
+      }
+    ],
+    trends: {
+      duration: 'down' as const,
+      attendees: 'up' as const,
+      decisions: 'up' as const,
+      actionItems: 'down' as const
+    },
+    improvements: [
+      'Meeting duration reduced by 20%',
+      'More focused decision making',
+      'Better time management'
+    ],
+    unresolvedItems: [
+      'Technical debt discussion postponed',
+      'Budget approval still pending'
+    ]
+  };
+
+  const mockSyncQueue = [
+    {
+      id: '1',
+      type: 'meeting' as const,
+      title: 'Client Meeting Recording',
+      size: 52428800, // 50MB
+      status: 'pending' as const,
+      createdAt: '2024-01-15T10:00:00Z'
+    },
+    {
+      id: '2',
+      type: 'transcript' as const,
+      title: 'Team Sync Transcript',
+      size: 1048576, // 1MB
+      status: 'synced' as const,
+      createdAt: '2024-01-14T14:00:00Z'
+    }
+  ];
 
   const weekStart = startOfWeek(new Date());
   const weekEnd = endOfWeek(new Date());
@@ -172,6 +370,91 @@ const Dashboard = () => {
         variant: "destructive"
       });
     }
+  };
+
+  // Event handlers for new dashboard components
+  const handleActionItemStatusChange = (itemId: string, status: 'pending' | 'completed' | 'snoozed') => {
+    console.log('Action item status changed:', itemId, status);
+    toast({
+      title: "Action item updated",
+      description: `Item marked as ${status}`,
+    });
+  };
+
+  const handleActionItemSnooze = (itemId: string, days: number) => {
+    console.log('Action item snoozed:', itemId, days);
+    toast({
+      title: "Action item snoozed",
+      description: `Reminder set for ${days} day${days > 1 ? 's' : ''} from now`,
+    });
+  };
+
+  const handleInsightClick = (insight: any) => {
+    console.log('Insight clicked:', insight);
+    navigate(`/app/insights/${insight.id}`);
+  };
+
+  const handleBotToggleAutoJoin = (meetingId: string, enabled: boolean) => {
+    console.log('Bot auto-join toggled:', meetingId, enabled);
+    toast({
+      title: enabled ? "Bot will auto-join" : "Bot auto-join disabled",
+      description: `Meeting: ${meetingId}`,
+    });
+  };
+
+  const handleBotToggleAutoRecord = (meetingId: string, enabled: boolean) => {
+    console.log('Bot auto-record toggled:', meetingId, enabled);
+    toast({
+      title: enabled ? "Bot will record meeting" : "Bot recording disabled",
+      description: `Meeting: ${meetingId}`,
+    });
+  };
+
+  const handleBotSetJoinMode = (meetingId: string, mode: 'audio_only' | 'speaker_view') => {
+    console.log('Bot join mode set:', meetingId, mode);
+    toast({
+      title: "Bot join mode updated",
+      description: `Mode: ${mode}`,
+    });
+  };
+
+  const handleBotTroubleshoot = () => {
+    console.log('Bot troubleshoot clicked');
+    toast({
+      title: "Troubleshooting",
+      description: "Running diagnostics...",
+    });
+  };
+
+  const handleCollaboratorClick = (collaborator: any) => {
+    console.log('Collaborator clicked:', collaborator);
+    navigate(`/app/contacts/${collaborator.id}`);
+  };
+
+  const handleViewComparison = (comparison: any) => {
+    console.log('View comparison clicked:', comparison);
+    navigate(`/app/comparisons/${comparison.id}`);
+  };
+
+  const handleToggleOfflineMode = (enabled: boolean) => {
+    console.log('Offline mode toggled:', enabled);
+    toast({
+      title: enabled ? "Offline mode enabled" : "Online mode enabled",
+      description: enabled ? "All processing happens locally" : "Cloud processing enabled",
+    });
+  };
+
+  const handleSyncNow = () => {
+    console.log('Sync now clicked');
+    toast({
+      title: "Syncing data",
+      description: "Uploading local data to cloud...",
+    });
+  };
+
+  const handleViewSyncQueue = () => {
+    console.log('View sync queue clicked');
+    navigate('/app/sync-queue');
   };
 
   if (isLoading) {
@@ -358,6 +641,42 @@ const Dashboard = () => {
                   isLoadingInsights={insightsLoading}
                   onRecentRecordingClick={handleRecentRecordingClick}
                 />
+
+                {/* New Action Items Card */}
+                <ActionItemsCard 
+                  actionItems={mockActionItems}
+                  onStatusChange={handleActionItemStatusChange}
+                  onSnooze={handleActionItemSnooze}
+                />
+
+                {/* New Insights Timeline Card */}
+                <InsightsTimelineCard 
+                  insights={mockInsights}
+                  onInsightClick={handleInsightClick}
+                />
+
+                {/* New Bot Status Card */}
+                <BotStatusCard 
+                  botMeetings={mockBotMeetings}
+                  isOnline={true}
+                  syncStatus="synced"
+                  onToggleAutoJoin={handleBotToggleAutoJoin}
+                  onToggleAutoRecord={handleBotToggleAutoRecord}
+                  onSetJoinMode={handleBotSetJoinMode}
+                  onTroubleshoot={handleBotTroubleshoot}
+                />
+
+                {/* New Attendee Intelligence Card */}
+                <AttendeeIntelligenceCard 
+                  collaborators={mockCollaborators}
+                  onCollaboratorClick={handleCollaboratorClick}
+                />
+
+                {/* New Meeting Comparison Card */}
+                <MeetingComparisonCard 
+                  comparison={mockMeetingComparison}
+                  onViewComparison={handleViewComparison}
+                />
               </div>
 
               {/* Right Column - Latest Summary and Quick Actions */}
@@ -452,6 +771,17 @@ const Dashboard = () => {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* New Offline Mode Card */}
+                <OfflineModeCard 
+                  isOfflineMode={false}
+                  onToggleOfflineMode={handleToggleOfflineMode}
+                  syncQueue={mockSyncQueue}
+                  localStorageUsed={150}
+                  totalStorage={1024}
+                  onSyncNow={handleSyncNow}
+                  onViewSyncQueue={handleViewSyncQueue}
+                />
               </div>
             </div>
           </>
