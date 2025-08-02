@@ -5,7 +5,61 @@
       "destination": "/index.html"
     }
   ],
+  "redirects": [
+    {
+      "source": "/login",
+      "destination": "/index.html",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "destination": "/index.html",
+      "permanent": false
+    },
+    {
+      "source": "/app/(.*)",
+      "destination": "/index.html",
+      "permanent": false
+    },
+    {
+      "source": "/auth/(.*)",
+      "destination": "/index.html",
+      "permanent": false
+    },
+    {
+      "source": "/TOS",
+      "destination": "/index.html",
+      "permanent": false
+    },
+    {
+      "source": "/privacy-policy",
+      "destination": "/index.html",
+      "permanent": false
+    },
+    {
+      "source": "/coming-soon",
+      "destination": "/index.html",
+      "permanent": false
+    }
+  ],
   "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    },
     {
       "source": "/app/(.*)",
       "headers": [
@@ -37,5 +91,8 @@
     "supabase/functions/**/*.ts": {
       "runtime": "nodejs18.x"
     }
-  }
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install"
 } 
