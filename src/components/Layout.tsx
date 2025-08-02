@@ -30,6 +30,22 @@ const Layout: React.FC = () => {
   
   const { joinMeetingWithBot } = useRecallData();
 
+  // Extensive debug logging
+  console.log('[Layout] Component rendering');
+  console.log('[Layout] Current location:', location);
+  console.log('[Layout] Current pathname:', location.pathname);
+  console.log('[Layout] Current search:', location.search);
+  console.log('[Layout] Current hash:', location.hash);
+  console.log('[Layout] User authenticated:', !!user);
+  console.log('[Layout] User email:', user?.email);
+  console.log('[Layout] Mobile menu open:', mobileMenuOpen);
+
+  React.useEffect(() => {
+    console.log('[Layout] useEffect - Location changed');
+    console.log('[Layout] New pathname:', location.pathname);
+    console.log('[Layout] Previous pathname:', location.state?.from);
+  }, [location]);
+
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }

@@ -21,6 +21,16 @@ const Login = () => {
   const { login, signUp, loginWithGoogle, loginWithMicrosoft, isAuthenticated } = useAuth();
   useGoogleAnalytics();
 
+  // Extensive debug logging
+  console.log('[Login] Component rendering');
+  console.log('[Login] Current window location:', window.location.href);
+  console.log('[Login] Current pathname:', window.location.pathname);
+  console.log('[Login] Is authenticated:', isAuthenticated);
+  console.log('[Login] User email state:', email);
+  console.log('[Login] Loading state:', isLoading);
+  console.log('[Login] User exists modal state:', showUserExistsModal);
+  console.log('[Login] Existing user email:', existingUserEmail);
+
   console.log('[Login] Component rendered, isAuthenticated:', isAuthenticated);
 
   if (isAuthenticated) {
@@ -31,24 +41,40 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('[Login] Login form submitted for:', email);
+    console.log('[Login] Form event:', e);
+    console.log('[Login] Current loading state:', isLoading);
+    
     setIsLoading(true);
+    console.log('[Login] Set loading to true');
     
     try {
+      console.log('[Login] Attempting login...');
       await login(email, password);
       console.log('[Login] Login successful, navigating to app');
+      console.log('[Login] Current window location before navigation:', window.location.href);
+      
       navigate('/app');
+      console.log('[Login] Navigation to /app completed');
+      console.log('[Login] New window location after navigation:', window.location.href);
     } catch (error: any) {
       console.error('[Login] Login handler error:', error);
+      console.error('[Login] Error message:', error?.message);
+      console.error('[Login] Error stack:', error?.stack);
       
       // Handle specific error cases in the component
       if (error?.message?.includes('User not found') || error?.message?.includes('No account found')) {
+        console.log('[Login] User not found, switching to signup tab');
         // Switch to signup tab if user doesn't exist
         const signupTab = document.querySelector('[data-value="signup"]') as HTMLElement;
         if (signupTab) {
+          console.log('[Login] Found signup tab, clicking it');
           signupTab.click();
+        } else {
+          console.log('[Login] Signup tab not found');
         }
       }
     } finally {
+      console.log('[Login] Setting loading to false');
       setIsLoading(false);
     }
   };
@@ -56,6 +82,9 @@ const Login = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('[Login] Signup form submitted for:', email);
+    console.log('[Login] Password length:', password.length);
+    console.log('[Login] Password match:', password === confirmPassword);
+    
     if (password !== confirmPassword) {
       console.log('[Login] Password mismatch');
       toast.error("Passwords do not match");
@@ -63,62 +92,100 @@ const Login = () => {
     }
     
     if (password.length < 6) {
+      console.log('[Login] Password too short');
       toast.error("Password must be at least 6 characters long");
       return;
     }
     
+    console.log('[Login] Setting loading to true');
     setIsLoading(true);
+    
     try {
+      console.log('[Login] Attempting signup...');
       await signUp(email, password);
       console.log('[Login] Signup successful');
       // Don't navigate automatically - user needs to verify email first
       // Clear the form after successful signup
+      console.log('[Login] Clearing form fields');
       setEmail('');
       setPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       console.error('[Login] Signup handler error:', error);
+      console.error('[Login] Error message:', error?.message);
+      console.error('[Login] Error stack:', error?.stack);
       
       // Handle specific error cases in the component
       if (error?.message?.includes('already exists') || error?.message?.includes('already registered')) {
+        console.log('[Login] User already exists, showing modal');
         // Show popup modal for existing user
         setExistingUserEmail(email);
         setShowUserExistsModal(true);
       }
     } finally {
+      console.log('[Login] Setting loading to false');
       setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
     console.log('[Login] Google login button clicked');
-    await loginWithGoogle();
+    console.log('[Login] Current window location:', window.location.href);
+    
+    try {
+      await loginWithGoogle();
+      console.log('[Login] Google login initiated');
+    } catch (error) {
+      console.error('[Login] Google login error:', error);
+    }
   };
 
   const handleMicrosoftLogin = async () => {
     console.log('[Login] Microsoft login button clicked');
-    await loginWithMicrosoft();
+    console.log('[Login] Current window location:', window.location.href);
+    
+    try {
+      await loginWithMicrosoft();
+      console.log('[Login] Microsoft login initiated');
+    } catch (error) {
+      console.error('[Login] Microsoft login error:', error);
+    }
   };
 
   const handleSwitchToLogin = () => {
+    console.log('[Login] Switching to login tab');
+    console.log('[Login] Closing user exists modal');
     setShowUserExistsModal(false);
+    
     // Switch to login tab
     const loginTab = document.querySelector('[data-value="login"]') as HTMLElement;
     if (loginTab) {
+      console.log('[Login] Found login tab, clicking it');
       loginTab.click();
+    } else {
+      console.log('[Login] Login tab not found');
     }
+    
     // Pre-fill the email field
+    console.log('[Login] Pre-filling email field with:', existingUserEmail);
     setEmail(existingUserEmail);
   };
 
   const handleTestLogin = async () => {
     console.log('[Login] Test login button clicked');
+    console.log('[Login] Current window location:', window.location.href);
+    
     setIsLoading(true);
     try {
       // Use a test account for development
+      console.log('[Login] Attempting test login...');
       await login('test@action.it', 'testpassword123');
       console.log('[Login] Test login successful, navigating to app');
+      console.log('[Login] Current window location before navigation:', window.location.href);
+      
       navigate('/app');
+      console.log('[Login] Navigation to /app completed');
+      console.log('[Login] New window location after navigation:', window.location.href);
     } catch (error) {
       console.error('[Login] Test login failed:', error);
       toast.error("Test login failed. Please try the regular login.");
@@ -126,6 +193,9 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+
+  console.log('[Login] Rendering login form');
+  console.log('[Login] Current form state - Email:', email, 'Loading:', isLoading);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-ivory dark:bg-charcoal p-4">
@@ -203,7 +273,10 @@ const Login = () => {
                     type="email"
                     placeholder="Email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      console.log('[Login] Email input changed:', e.target.value);
+                      setEmail(e.target.value);
+                    }}
                     required
                   />
                 </div>
@@ -212,7 +285,10 @@ const Login = () => {
                     type="password"
                     placeholder="Password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      console.log('[Login] Password input changed, length:', e.target.value.length);
+                      setPassword(e.target.value);
+                    }}
                     required
                   />
                 </div>
@@ -229,7 +305,10 @@ const Login = () => {
                     type="email"
                     placeholder="Email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      console.log('[Login] Signup email input changed:', e.target.value);
+                      setEmail(e.target.value);
+                    }}
                     required
                   />
                 </div>
@@ -238,7 +317,10 @@ const Login = () => {
                     type="password"
                     placeholder="Password (min. 6 characters)"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      console.log('[Login] Signup password input changed, length:', e.target.value.length);
+                      setPassword(e.target.value);
+                    }}
                     required
                   />
                 </div>
@@ -247,7 +329,10 @@ const Login = () => {
                     type="password"
                     placeholder="Confirm Password"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => {
+                      console.log('[Login] Confirm password input changed, length:', e.target.value.length);
+                      setConfirmPassword(e.target.value);
+                    }}
                     required
                   />
                 </div>
@@ -262,7 +347,10 @@ const Login = () => {
           </Tabs>
         </CardContent>
         <CardFooter className="justify-center">
-          <Button variant="link" onClick={() => navigate('/')}>
+          <Button variant="link" onClick={() => {
+            console.log('[Login] Return to home button clicked');
+            navigate('/');
+          }}>
             Return to home
           </Button>
         </CardFooter>
@@ -294,7 +382,10 @@ const Login = () => {
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
             <Button 
               variant="outline" 
-              onClick={() => setShowUserExistsModal(false)}
+              onClick={() => {
+                console.log('[Login] Cancel button clicked in user exists modal');
+                setShowUserExistsModal(false);
+              }}
               className="w-full sm:w-auto"
             >
               Cancel
