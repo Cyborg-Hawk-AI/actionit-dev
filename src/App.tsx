@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
@@ -28,6 +28,24 @@ const queryClient = new QueryClient({
   },
 });
 
+// URL Normalization Component
+function URLNormalizer() {
+  const location = useLocation();
+  
+  React.useEffect(() => {
+    // Normalize URL if it contains /index.html
+    if (window.location.pathname.includes('/index.html')) {
+      const cleanPath = window.location.pathname.replace('/index.html', '') || '/';
+      if (cleanPath !== window.location.pathname) {
+        window.history.replaceState(null, '', cleanPath);
+        console.log('[App] URL normalized from', window.location.pathname, 'to', cleanPath);
+      }
+    }
+  }, [location]);
+
+  return null;
+}
+
 function App() {
   console.log('[App] Component rendering - App.tsx');
   console.log('[App] Current window location:', window.location.href);
@@ -49,6 +67,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <Router>
+            <URLNormalizer />
             <div className="min-h-screen bg-background text-foreground">
               <Routes>
                 {/* Default route now points to home page */}
