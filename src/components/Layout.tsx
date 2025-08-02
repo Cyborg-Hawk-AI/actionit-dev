@@ -30,22 +30,6 @@ const Layout: React.FC = () => {
   
   const { joinMeetingWithBot } = useRecallData();
 
-  // Extensive debug logging
-  console.log('[Layout] Component rendering');
-  console.log('[Layout] Current location:', location);
-  console.log('[Layout] Current pathname:', location.pathname);
-  console.log('[Layout] Current search:', location.search);
-  console.log('[Layout] Current hash:', location.hash);
-  console.log('[Layout] User authenticated:', !!user);
-  console.log('[Layout] User email:', user?.email);
-  console.log('[Layout] Mobile menu open:', mobileMenuOpen);
-
-  React.useEffect(() => {
-    console.log('[Layout] useEffect - Location changed');
-    console.log('[Layout] New pathname:', location.pathname);
-    console.log('[Layout] Previous pathname:', location.state?.from);
-  }, [location]);
-
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
@@ -57,7 +41,6 @@ const Layout: React.FC = () => {
   ];
 
   const handleSearch = (term: string) => {
-    console.log('[Layout] Search term:', term);
     // Search functionality is handled in SearchInput component
   };
 
@@ -67,18 +50,14 @@ const Layout: React.FC = () => {
     joinMode: JoinMode;
     useBot: boolean;
   }) => {
-    console.log('[Layout] Join meeting with info:', meetingInfo);
-    
     if (!meetingInfo.useBot) {
       // If no bot is requested, we're done after creating the meeting record
-      console.log('[Layout] Meeting joined without bot');
       return;
     }
 
     try {
       // The meeting record was already created in the modal
       // Now we need to trigger the bot to join
-      console.log('[Layout] Triggering bot to join meeting');
       
       // Note: We would need the meeting ID here to join with bot
       // For now, just show success message as the bot logic will be handled by webhooks

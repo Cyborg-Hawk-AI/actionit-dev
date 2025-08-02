@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
@@ -28,138 +28,39 @@ const queryClient = new QueryClient({
   },
 });
 
-// URL Normalization Component
-function URLNormalizer() {
-  const location = useLocation();
-  
-  React.useEffect(() => {
-    // Normalize URL if it contains /index.html
-    if (window.location.pathname.includes('/index.html')) {
-      const cleanPath = window.location.pathname.replace('/index.html', '') || '/';
-      if (cleanPath !== window.location.pathname) {
-        window.history.replaceState(null, '', cleanPath);
-        console.log('[App] URL normalized from', window.location.pathname, 'to', cleanPath);
-      }
-    }
-  }, [location]);
-
-  return null;
-}
-
 function App() {
-  console.log('[App] Component rendering - App.tsx');
-  console.log('[App] Current window location:', window.location.href);
-  console.log('[App] Current pathname:', window.location.pathname);
-  console.log('[App] Current search:', window.location.search);
-  console.log('[App] Current hash:', window.location.hash);
-
-  // Debug function to log route changes
-  const logRouteChange = (path: string, component: string) => {
-    console.log(`[App] Route accessed: ${path} -> Component: ${component}`);
-    console.log(`[App] Full URL: ${window.location.href}`);
-    console.log(`[App] User Agent: ${navigator.userAgent}`);
-    console.log(`[App] Timestamp: ${new Date().toISOString()}`);
-    return null; // Return null for React compatibility
-  };
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
           <Router>
-            <URLNormalizer />
             <div className="min-h-screen bg-background text-foreground">
               <Routes>
                 {/* Default route now points to home page */}
-                <Route path="/" element={
-                  <React.Fragment>
-                    {logRouteChange('/', 'Index')}
-                    <Index />
-                  </React.Fragment>
-                } />
+                <Route path="/" element={<Index />} />
                 
                 {/* Coming soon page preserved at /coming-soon */}
-                <Route path="/coming-soon" element={
-                  <React.Fragment>
-                    {logRouteChange('/coming-soon', 'ComingSoon')}
-                    <ComingSoon />
-                  </React.Fragment>
-                } />
+                <Route path="/coming-soon" element={<ComingSoon />} />
                 
                 {/* Auth routes */}
-                <Route path="/login" element={
-                  <React.Fragment>
-                    {logRouteChange('/login', 'Login')}
-                    <Login />
-                  </React.Fragment>
-                } />
-                <Route path="/auth/callback" element={
-                  <React.Fragment>
-                    {logRouteChange('/auth/callback', 'AuthCallback')}
-                    <AuthCallback />
-                  </React.Fragment>
-                } />
+                <Route path="/login" element={<Login />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
                 
                 {/* Legal pages */}
-                <Route path="/TOS" element={
-                  <React.Fragment>
-                    {logRouteChange('/TOS', 'TermsOfService')}
-                    <TermsOfService />
-                  </React.Fragment>
-                } />
-                <Route path="/privacy-policy" element={
-                  <React.Fragment>
-                    {logRouteChange('/privacy-policy', 'PrivacyPolicy')}
-                    <PrivacyPolicy />
-                  </React.Fragment>
-                } />
+                <Route path="/TOS" element={<TermsOfService />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 
                 {/* App routes */}
-                <Route path="/app" element={
-                  <React.Fragment>
-                    {logRouteChange('/app', 'Layout')}
-                    <Layout />
-                  </React.Fragment>
-                }>
-                  <Route index element={
-                    <React.Fragment>
-                      {logRouteChange('/app', 'Dashboard')}
-                      <Dashboard />
-                    </React.Fragment>
-                  } />
-                  <Route path="calendar" element={
-                    <React.Fragment>
-                      {logRouteChange('/app/calendar', 'CalendarPage')}
-                      <CalendarPage />
-                    </React.Fragment>
-                  } />
-                  <Route path="meetings/:meetingId" element={
-                    <React.Fragment>
-                      {logRouteChange('/app/meetings/:meetingId', 'MeetingDetail')}
-                      <MeetingDetail />
-                    </React.Fragment>
-                  } />
-                  <Route path="settings" element={
-                    <React.Fragment>
-                      {logRouteChange('/app/settings', 'Settings')}
-                      <Settings />
-                    </React.Fragment>
-                  } />
+                <Route path="/app" element={<Layout />}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="calendar" element={<CalendarPage />} />
+                  <Route path="meetings/:meetingId" element={<MeetingDetail />} />
+                  <Route path="settings" element={<Settings />} />
                 </Route>
                 
                 {/* Error routes */}
-                <Route path="/404" element={
-                  <React.Fragment>
-                    {logRouteChange('/404', 'NotFound')}
-                    <NotFound />
-                  </React.Fragment>
-                } />
-                <Route path="*" element={
-                  <React.Fragment>
-                    {logRouteChange('*', 'Navigate to 404')}
-                    <Navigate to="/404" replace />
-                  </React.Fragment>
-                } />
+                <Route path="/404" element={<NotFound />} />
+                <Route path="*" element={<Navigate to="/404" replace />} />
               </Routes>
               <Toaster />
             </div>
