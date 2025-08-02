@@ -96,11 +96,6 @@
       ]
     }
   ],
-  "functions": {
-    "supabase/functions/**/*.ts": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
