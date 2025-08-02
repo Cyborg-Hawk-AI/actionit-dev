@@ -35,15 +35,60 @@ if ! git rev-parse --git-dir > /dev/null 2>&1; then
     exit 1
 fi
 
+# Get current branch
+CURRENT_BRANCH=$(git branch --show-current)
+print_status "Current branch: $CURRENT_BRANCH"
+
+# Check if we have a remote configured
+if ! git remote get-url origin > /dev/null 2>&1; then
+    print_error "No remote 'origin' configured. Please set up your remote repository."
+    exit 1
+fi
+
+# Get remote URL
+REMOTE_URL=$(git remote get-url origin)
+print_status "Current remote URL: $REMOTE_URL"
+
+# Check if we're on the correct remote repository
+EXPECTED_REMOTE="https://github.com/Cyborg-Hawk-AI/actionit-dev.git"
+if [[ "$REMOTE_URL" != "$EXPECTED_REMOTE" ]]; then
+    print_warning "Remote URL doesn't match expected actionit-dev repository"
+    print_warning "Expected: $EXPECTED_REMOTE"
+    print_warning "Current:  $REMOTE_URL"
+    
+    read -p "Do you want to update the remote to point to actionit-dev? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_status "Updating remote origin to actionit-dev..."
+        git remote set-url origin "$EXPECTED_REMOTE"
+        print_success "Remote updated successfully"
+    else
+        print_error "Remote URL mismatch. Please update manually or confirm the correct repository."
+        exit 1
+    fi
+fi
+
+# Check if we're on the master branch (or main)
+if [[ "$CURRENT_BRANCH" != "master" && "$CURRENT_BRANCH" != "main" ]]; then
+    print_warning "You're not on the master/main branch. Current branch: $CURRENT_BRANCH"
+    
+    read -p "Do you want to switch to master branch? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_status "Switching to master branch..."
+        git checkout master
+        CURRENT_BRANCH="master"
+        print_success "Switched to master branch"
+    else
+        print_warning "Continuing with current branch: $CURRENT_BRANCH"
+    fi
+fi
+
 # Check if we have changes to commit
 if git diff-index --quiet HEAD --; then
     print_warning "No changes to commit. Repository is up to date."
     exit 0
 fi
-
-# Get current branch
-CURRENT_BRANCH=$(git branch --show-current)
-print_status "Current branch: $CURRENT_BRANCH"
 
 # Get current timestamp
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
@@ -77,18 +122,22 @@ git commit -m "$COMMIT_MESSAGE"
 COMMIT_HASH=$(git rev-parse --short HEAD)
 print_success "Committed changes with hash: $COMMIT_HASH"
 
-# Check if we have a remote configured
-if ! git remote get-url origin > /dev/null 2>&1; then
-    print_error "No remote 'origin' configured. Please set up your remote repository."
-    exit 1
+# Fetch latest changes from remote
+print_status "Fetching latest changes from remote..."
+git fetch origin
+
+# Check if we need to pull before pushing
+if git rev-list HEAD..origin/$CURRENT_BRANCH --count > /dev/null 2>&1; then
+    REMOTE_AHEAD=$(git rev-list HEAD..origin/$CURRENT_BRANCH --count)
+    if [ "$REMOTE_AHEAD" -gt 0 ]; then
+        print_warning "Remote has $REMOTE_AHEAD new commits. Pulling latest changes..."
+        git pull origin $CURRENT_BRANCH
+        print_success "Pulled latest changes from remote"
+    fi
 fi
 
-# Get remote URL
-REMOTE_URL=$(git remote get-url origin)
-print_status "Pushing to remote: $REMOTE_URL"
-
 # Push changes
-print_status "Pushing changes..."
+print_status "Pushing changes to $CURRENT_BRANCH..."
 if git push origin "$CURRENT_BRANCH"; then
     print_success "Successfully pushed changes to $CURRENT_BRANCH"
 else
