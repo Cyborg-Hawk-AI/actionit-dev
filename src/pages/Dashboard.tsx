@@ -343,7 +343,7 @@ const Dashboard = () => {
               {/* Left Column - Calendar and Recent Meetings */}
               <div className="lg:col-span-2 space-y-6">
                 <DashboardCalendarCard 
-                  meetings={[...todayMeetings, ...upcomingMeetings]}
+                  meetings={meetings}
                   joiningMeetings={joiningMeetings}
                   meetingJoinModes={meetingJoinModes}
                   onJoinMeeting={handleJoinMeeting}

@@ -20,7 +20,7 @@ import {
   ExternalLink,
   Sparkles
 } from 'lucide-react';
-import { format, parseISO, isToday, isSameDay } from 'date-fns';
+import { format, parseISO, isToday, isSameDay, addDays, isWithinInterval } from 'date-fns';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Tooltip,
@@ -52,7 +52,7 @@ interface DashboardCalendarCardProps {
 
 export function DashboardCalendarCard({
   meetings,
-  title = "Today's Meetings",
+  title,
   totalMeetings,
   loading = false,
   joiningMeetings,
@@ -65,6 +65,40 @@ export function DashboardCalendarCard({
 }: DashboardCalendarCardProps) {
   const [selectedMeeting, setSelectedMeeting] = React.useState<Meeting | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  
+  // Filter meetings based on availability
+  const todayMeetings = meetings.filter(meeting => 
+    isToday(parseISO(meeting.start_time))
+  );
+  
+  const nextThreeDays = meetings.filter(meeting => {
+    const meetingDate = parseISO(meeting.start_time);
+    const today = new Date();
+    const threeDaysFromNow = addDays(today, 3);
+    return isWithinInterval(meetingDate, { start: today, end: threeDaysFromNow }) && !isToday(meetingDate);
+  });
+  
+  // Determine which meetings to show and card title
+  const displayMeetings = todayMeetings.length > 0 ? todayMeetings : nextThreeDays;
+  const hasAnyMeetings = todayMeetings.length > 0 || nextThreeDays.length > 0;
+  
+  const getCardTitle = () => {
+    if (todayMeetings.length > 0) {
+      return "Today's Meetings";
+    } else if (nextThreeDays.length > 0) {
+      return "Upcoming Meetings";
+    }
+    return "No Meetings Scheduled";
+  };
+  
+  const getCardDescription = () => {
+    if (todayMeetings.length > 0) {
+      return `${todayMeetings.length} meeting${todayMeetings.length !== 1 ? 's' : ''} today`;
+    } else if (nextThreeDays.length > 0) {
+      return `${nextThreeDays.length} meeting${nextThreeDays.length !== 1 ? 's' : ''} in the next 3 days`;
+    }
+    return "Enjoy your free time!";
+  };
   
   const isMeetingNow = (meeting: Meeting) => {
     const now = new Date();
@@ -98,6 +132,34 @@ export function DashboardCalendarCard({
     setSelectedMeeting(null);
   };
   
+  // If no meetings exist, return a minimal card
+  if (!hasAnyMeetings && !loading) {
+    return (
+      <Card className={cn("overflow-hidden bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/30 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/10 backdrop-blur-sm border-blue-200/50 dark:border-blue-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl", className)}>
+        <CardHeader className="bg-gradient-to-r from-blue-100/50 to-indigo-100/50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b border-blue-200/30 dark:border-blue-800/20">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full p-2">
+              <CalendarIcon className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100">{getCardTitle()}</CardTitle>
+              <CardDescription className="text-blue-700/70 dark:text-blue-300/70">{getCardDescription()}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="text-center py-8">
+            <div className="bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              <CalendarIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h4 className="text-base font-medium mb-2 text-blue-900 dark:text-blue-100">No meetings scheduled</h4>
+            <p className="text-sm text-blue-700/70 dark:text-blue-300/70">Enjoy your free time!</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   return (
     <Card className={cn("overflow-hidden h-full bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/30 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/10 backdrop-blur-sm border-blue-200/50 dark:border-blue-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl", className)}>
       <CardHeader className="bg-gradient-to-r from-blue-100/50 to-indigo-100/50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b border-blue-200/30 dark:border-blue-800/20">
@@ -107,10 +169,9 @@ export function DashboardCalendarCard({
               <CalendarIcon className="h-4 w-4 text-white" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100">{title}</CardTitle>
+              <CardTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100">{getCardTitle()}</CardTitle>
               <CardDescription className="text-blue-700/70 dark:text-blue-300/70">
-                {totalMeetings !== undefined ? `${totalMeetings} upcoming` : 
-                  `${meetings.length} meeting${meetings.length !== 1 ? 's' : ''} scheduled`}
+                {getCardDescription()}
               </CardDescription>
             </div>
           </div>
@@ -124,7 +185,7 @@ export function DashboardCalendarCard({
               <p className="text-sm text-blue-700/70 dark:text-blue-300/70">Loading meetings...</p>
             </div>
           </div>
-        ) : meetings.length === 0 ? (
+        ) : displayMeetings.length === 0 ? (
           <div className="text-center py-10">
             <div className="bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
               <CalendarIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
@@ -135,7 +196,7 @@ export function DashboardCalendarCard({
         ) : (
           <ScrollArea className="max-h-[400px]">
             <div>
-              {meetings.map((meeting) => {
+              {displayMeetings.map((meeting) => {
                 const isNow = isMeetingNow(meeting);
                 const status = getMeetingStatus(meeting);
                 
