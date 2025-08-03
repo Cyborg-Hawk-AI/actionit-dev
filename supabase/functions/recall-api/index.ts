@@ -1,52 +1,43 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-
 // API base URL for Recall.ai
 const RECALL_API_BASE_URL = "https://us-west-2.recall.ai";
-
 // CORS headers for all responses
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
-
 // Create a Supabase client
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const supabase = createClient(supabaseUrl, supabaseServiceRole);
-
 // Check if all environment variables are set
 const environmentCheck = {
   SUPABASE_URL: !!Deno.env.get("SUPABASE_URL"),
   SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
   RECALL_API_KEY: !!Deno.env.get("RECALL_API_KEY"),
   GOOGLE_CLIENT_ID: !!Deno.env.get("GOOGLE_CLIENT_ID"),
-  GOOGLE_CLIENT_SECRET: !!Deno.env.get("GOOGLE_CLIENT_SECRET"),
+  GOOGLE_CLIENT_SECRET: !!Deno.env.get("GOOGLE_CLIENT_SECRET")
 };
-
 // Request handler for the Recall API function
-serve(async (req) => {
+serve(async (req)=>{
   console.log("[Recall API] Starting recall-api function");
   console.log("[Recall API] Environment check:", environmentCheck);
   console.log("[Recall API] Using API base URL:", RECALL_API_BASE_URL);
-  
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
-      headers: corsHeaders,
+      headers: corsHeaders
     });
   }
-  
   try {
     // Parse the request body
     const requestData = await req.json();
     const { action } = requestData;
-    
     console.log("[Recall API] Received action:", action, requestData);
-    
     // Based on the action, call the appropriate handler
-    switch (action) {
+    switch(action){
       case "create-calendar":
         return await handleCreateCalendar(requestData);
       case "create-calendar-from-google-auth":
@@ -64,29 +55,25 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error(`[Recall API] Error processing request:`, error);
-    
-    return new Response(
-      JSON.stringify({
-        error: error.message,
-        details: error.details || null
-      }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({
+      error: error.message,
+      details: error.details || null
+    }), {
+      status: 400,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
       }
-    );
+    });
   }
 });
-
 async function handleCreateCalendar(requestData) {
   const { userId, clientId, clientSecret, refreshToken, platform } = requestData;
-  
   try {
     console.log("[Recall API] Creating calendar for user:", userId);
     // Use the correctly formatted endpoint for calendar creation
     const apiEndpoint = `${RECALL_API_BASE_URL}/api/v2/calendars/`;
     console.log("[Recall API] Making API request to:", apiEndpoint);
-    
     // Make request to Recall API to create calendar using correct field names
     const response = await fetch(apiEndpoint, {
       method: "POST",
@@ -102,14 +89,11 @@ async function handleCreateCalendar(requestData) {
         oauth_refresh_token: refreshToken
       })
     });
-    
     // Log response status and content type for debugging
     console.log("[Recall API] Response status:", response.status);
     console.log("[Recall API] Response headers:", Object.fromEntries(response.headers.entries()));
-    
     let responseData;
     const contentType = response.headers.get("content-type");
-    
     if (contentType && contentType.includes("application/json")) {
       responseData = await response.json();
       console.log("[Recall API] Response data:", JSON.stringify(responseData).substring(0, 500));
@@ -117,130 +101,136 @@ async function handleCreateCalendar(requestData) {
       // Handle non-JSON response
       const textResponse = await response.text();
       console.error("[Recall API] Non-JSON response:", textResponse);
-      return new Response(
-        JSON.stringify({ 
-          error: "Invalid response format from Recall API", 
-          details: { 
-            status: response.status, 
-            text: textResponse.substring(0, 200) + "...",
-            url: apiEndpoint
-          } 
-        }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Invalid response format from Recall API",
+        details: {
+          status: response.status,
+          text: textResponse.substring(0, 200) + "...",
+          url: apiEndpoint
+        }
+      }), {
+        status: response.status,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     if (!response.ok) {
       console.error("[Recall API] Error creating calendar:", responseData);
-      return new Response(
-        JSON.stringify({ error: "Failed to create calendar", details: responseData }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Failed to create calendar",
+        details: responseData
+      }), {
+        status: response.status,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     // Store calendar in database
     const recallCalendarId = responseData.id;
-    
-    const { data: calendar, error } = await supabase
-      .from('recall_calendars')
-      .insert({
-        user_id: userId,
-        recall_calendar_id: recallCalendarId,
-        platform
-      })
-      .select()
-      .single();
-    
+    const { data: calendar, error } = await supabase.from('recall_calendars').insert({
+      user_id: userId,
+      recall_calendar_id: recallCalendarId,
+      platform
+    }).select().single();
     if (error) {
       console.error("[Recall API] Error storing calendar:", error);
-      return new Response(
-        JSON.stringify({ error: "Failed to store calendar", details: error }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Failed to store calendar",
+        details: error
+      }), {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     console.log("[Recall API] Calendar created successfully:", recallCalendarId);
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        calendar,
-        recall_response: responseData
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      success: true,
+      calendar,
+      recall_response: responseData
+    }), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   } catch (error) {
     console.error("[Recall API] Error creating calendar:", error);
     console.error("[Recall API] Error stack:", error.stack);
-    return new Response(
-      JSON.stringify({ error: "Failed to create calendar", details: error.message, stack: error.stack }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      error: "Failed to create calendar",
+      details: error.message,
+      stack: error.stack
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   }
 }
-
 async function handleCreateCalendarFromGoogleAuth(requestData) {
   const { userId } = requestData;
-  
   try {
     console.log("[Recall API] Creating calendar from Google Auth for user:", userId);
-    
     // Check if Google client ID and secret are available
     if (!Deno.env.get("GOOGLE_CLIENT_ID") || !Deno.env.get("GOOGLE_CLIENT_SECRET")) {
       console.error("[Recall API] Missing Google OAuth credentials");
-      return new Response(
-        JSON.stringify({ 
-          error: "Missing Google OAuth credentials. Set the GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in secrets."
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Missing Google OAuth credentials. Set the GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in secrets."
+      }), {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     // Check if the user already has a Recall calendar
-    const { data: existingCalendar } = await supabase
-      .from('recall_calendars')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    
+    const { data: existingCalendar } = await supabase.from('recall_calendars').select('*').eq('user_id', userId).maybeSingle();
     if (existingCalendar) {
       console.log("[Recall API] User already has a Recall calendar:", existingCalendar);
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          calendar: existingCalendar,
-          message: "User already has a Recall calendar" 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        success: true,
+        calendar: existingCalendar,
+        message: "User already has a Recall calendar"
+      }), {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     // Get the most recent Google calendar connection for the user
-    const { data: googleCalendarConnection, error: connectionError } = await supabase
-      .from('calendar_connections')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('provider', 'google')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    
+    const { data: googleCalendarConnection, error: connectionError } = await supabase.from('calendar_connections').select('*').eq('user_id', userId).eq('provider', 'google').order('created_at', {
+      ascending: false
+    }).limit(1).single();
     if (connectionError || !googleCalendarConnection) {
       console.error("[Recall API] No Google calendar connection found:", connectionError);
-      return new Response(
-        JSON.stringify({ 
-          error: "No Google calendar connection found. Please connect your Google Calendar first."
-        }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "No Google calendar connection found. Please connect your Google Calendar first."
+      }), {
+        status: 404,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
-    console.log("[Recall API] Found Google calendar connection:", 
-      { id: googleCalendarConnection.id, provider: googleCalendarConnection.provider });
-    
+    console.log("[Recall API] Found Google calendar connection:", {
+      id: googleCalendarConnection.id,
+      provider: googleCalendarConnection.provider
+    });
     // Use the correctly formatted endpoint for calendar creation
     const apiEndpoint = `${RECALL_API_BASE_URL}/api/v2/calendars/`;
     console.log("[Recall API] Making API request to:", apiEndpoint);
-    
     try {
       // Create a calendar in Recall using the Google OAuth refresh token
       console.log("[Recall API] Preparing call to Recall API with body:", {
@@ -249,19 +239,21 @@ async function handleCreateCalendarFromGoogleAuth(requestData) {
         oauth_client_secret: "GOOGLE_CLIENT_SECRET provided",
         oauth_refresh_token: "refresh_token provided (length: " + googleCalendarConnection.refresh_token?.length + ")"
       });
-      
       // Log the actual refresh token (first few chars) for debugging
       if (googleCalendarConnection.refresh_token) {
-        console.log("[Recall API] Refresh token preview:", 
-          googleCalendarConnection.refresh_token.substring(0, 10) + "...");
+        console.log("[Recall API] Refresh token preview:", googleCalendarConnection.refresh_token.substring(0, 10) + "...");
       } else {
         console.error("[Recall API] Refresh token is missing or empty");
-        return new Response(
-          JSON.stringify({ error: "Refresh token is missing or empty" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({
+          error: "Refresh token is missing or empty"
+        }), {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json"
+          }
+        });
       }
-      
       // Create a calendar in Recall using the Google OAuth refresh token with updated field names
       const response = await fetch(apiEndpoint, {
         method: "POST",
@@ -277,171 +269,179 @@ async function handleCreateCalendarFromGoogleAuth(requestData) {
           oauth_refresh_token: googleCalendarConnection.refresh_token
         })
       });
-      
       // Log response details for troubleshooting
       console.log("[Recall API] Response status:", response.status);
       console.log("[Recall API] Response headers:", Object.fromEntries(response.headers.entries()));
-      
       let responseData;
       const contentType = response.headers.get("content-type");
-      
       if (contentType && contentType.includes("application/json")) {
         responseData = await response.json();
-        console.log("[Recall API] Response data (first 500 chars):", 
-          JSON.stringify(responseData).substring(0, 500));
+        console.log("[Recall API] Response data (first 500 chars):", JSON.stringify(responseData).substring(0, 500));
       } else {
         // Handle non-JSON response
         const textResponse = await response.text();
         console.error("[Recall API] Non-JSON response (first 500 chars):", textResponse.substring(0, 500));
-        
-        return new Response(
-          JSON.stringify({ 
-            error: "Invalid response format from Recall API", 
-            details: { 
-              status: response.status, 
-              text: textResponse.substring(0, 500),
-              url: apiEndpoint
-            } 
-          }),
-          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({
+          error: "Invalid response format from Recall API",
+          details: {
+            status: response.status,
+            text: textResponse.substring(0, 500),
+            url: apiEndpoint
+          }
+        }), {
+          status: response.status,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json"
+          }
+        });
       }
-      
       if (!response.ok) {
         console.error("[Recall API] Error creating calendar in Recall:", responseData);
-        return new Response(
-          JSON.stringify({ 
-            error: "Failed to create calendar in Recall", 
-            details: responseData,
-            request: {
-              url: apiEndpoint,
-              platform: "google_calendar",
-              hasClientId: Boolean(Deno.env.get("GOOGLE_CLIENT_ID")),
-              hasClientSecret: Boolean(Deno.env.get("GOOGLE_CLIENT_SECRET")),
-              hasRefreshToken: Boolean(googleCalendarConnection.refresh_token)
-            }
-          }),
-          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({
+          error: "Failed to create calendar in Recall",
+          details: responseData,
+          request: {
+            url: apiEndpoint,
+            platform: "google_calendar",
+            hasClientId: Boolean(Deno.env.get("GOOGLE_CLIENT_ID")),
+            hasClientSecret: Boolean(Deno.env.get("GOOGLE_CLIENT_SECRET")),
+            hasRefreshToken: Boolean(googleCalendarConnection.refresh_token)
+          }
+        }), {
+          status: response.status,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json"
+          }
+        });
       }
-      
-      console.log("[Recall API] Successfully created calendar in Recall:", 
-        { calendar_id: responseData.id });
-      
+      console.log("[Recall API] Successfully created calendar in Recall:", {
+        calendar_id: responseData.id
+      });
       // Store the Recall calendar in the database
       const recallCalendarId = responseData.id;
-      
-      const { data: calendar, error } = await supabase
-        .from('recall_calendars')
-        .insert({
-          user_id: userId,
-          recall_calendar_id: recallCalendarId,
-          platform: 'google_calendar'
-        })
-        .select()
-        .single();
-      
+      const { data: calendar, error } = await supabase.from('recall_calendars').insert({
+        user_id: userId,
+        recall_calendar_id: recallCalendarId,
+        platform: 'google_calendar'
+      }).select().single();
       if (error) {
         console.error("[Recall API] Error storing Recall calendar:", error);
-        return new Response(
-          JSON.stringify({ error: "Failed to store Recall calendar", details: error }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({
+          error: "Failed to store Recall calendar",
+          details: error
+        }), {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json"
+          }
+        });
       }
-      
-      console.log("[Recall API] Successfully stored Recall calendar:", 
-        { db_id: calendar.id, recall_id: recallCalendarId });
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          calendar,
-          googleCalendar: {
-            id: googleCalendarConnection.id,
-            provider: googleCalendarConnection.provider
-          },
-          recall_response: responseData
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.log("[Recall API] Successfully stored Recall calendar:", {
+        db_id: calendar.id,
+        recall_id: recallCalendarId
+      });
+      return new Response(JSON.stringify({
+        success: true,
+        calendar,
+        googleCalendar: {
+          id: googleCalendarConnection.id,
+          provider: googleCalendarConnection.provider
+        },
+        recall_response: responseData
+      }), {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     } catch (fetchError) {
       console.error("[Recall API] Network error calling Recall API:", fetchError);
       console.error("[Recall API] Error details:", fetchError.stack || "No stack trace");
-      
-      return new Response(
-        JSON.stringify({ 
-          error: "Network error calling Recall API", 
-          details: fetchError.message,
-          stack: fetchError.stack,
-          requestUrl: apiEndpoint
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Network error calling Recall API",
+        details: fetchError.message,
+        stack: fetchError.stack,
+        requestUrl: apiEndpoint
+      }), {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
   } catch (error) {
     console.error("[Recall API] Error creating calendar from Google Auth:", error);
     console.error("[Recall API] Error stack:", error.stack);
-    return new Response(
-      JSON.stringify({ 
-        error: "Failed to create calendar from Google Auth", 
-        details: error.message,
-        stack: error.stack 
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      error: "Failed to create calendar from Google Auth",
+      details: error.message,
+      stack: error.stack
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   }
 }
-
 async function handleScheduleBot(requestData) {
-  const { 
-    userId, 
-    calendarId, 
-    meetingId, 
-    meetingUrl, 
-    meetingTitle,
-    joinAt, 
-    botName = 'Action.IT',
-    botConfig = {
-      transcription_options: { provider: "meeting_captions" },
-      recording_mode: "speaker_view"
+  const { userId, calendarId, meetingId, meetingUrl, meetingTitle, joinAt, botName = 'Action.IT', botConfig = {
+    transcription_options: {
+      provider: "meeting_captions"
     },
-    deduplicationKey
-  } = requestData;
-  
+    recording_mode: "speaker_view"
+  }, deduplicationKey } = requestData;
   try {
     console.log(`[Recall API] Scheduling bot for meeting ${meetingId}`);
-    
     // Check if calendar exists
-    const { data: calendar, error: calendarError } = await supabase
-      .from('recall_calendars')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('id', calendarId)
-      .maybeSingle();
-      
+    const { data: calendar, error: calendarError } = await supabase.from('recall_calendars').select('*').eq('user_id', userId).eq('id', calendarId).maybeSingle();
     if (calendarError || !calendar) {
       console.error("[Recall API] Calendar not found:", calendarError);
-      return new Response(
-        JSON.stringify({ 
-          error: "Calendar not found", 
-          details: { 
-            calendarId,
-            userId,
-            calendarError
-          }
-        }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Calendar not found",
+        details: {
+          calendarId,
+          userId,
+          calendarError
+        }
+      }), {
+        status: 404,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
     
-    // Ensure transcription is always enabled
+    // Get the webhook URL for this deployment
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const webhookUrl = `${supabaseUrl}/functions/v1/recall-webhook`;
+    console.log("[Recall API] Webhook URL:", webhookUrl);
+    
+    // Ensure transcription is always enabled and add webhook configuration
     const finalBotConfig = {
       ...botConfig,
-      transcription_options: botConfig.transcription_options || { provider: "meeting_captions" }
+      transcription_options: botConfig.transcription_options || {
+        provider: "meeting_captions"
+      },
+      webhooks: [
+        {
+          url: webhookUrl,
+          events: [
+            "bot.status_change",
+            "transcript.done",
+            "analysis_done",
+            "recording.done"
+          ]
+        }
+      ]
     };
-    
     console.log("[Recall API] Using bot config:", finalBotConfig);
-    
     // Make request to Recall API to schedule bot
     const response = await fetch(`${RECALL_API_BASE_URL}/api/v2/calendar/${calendar.recall_calendar_id}/schedule-bot/`, {
       method: "POST",
@@ -457,91 +457,97 @@ async function handleScheduleBot(requestData) {
         deduplication_key: deduplicationKey
       })
     });
-    
     const responseData = await response.json();
-    
     if (!response.ok) {
       console.error("[Recall API] Error scheduling bot:", responseData);
-      return new Response(
-        JSON.stringify({ 
-          error: "Failed to schedule bot", 
-          details: responseData,
-          request: {
-            meeting_url: meetingUrl,
-            join_at: joinAt,
-            bot_name: botName,
-            bot_config: finalBotConfig,
-            deduplication_key: deduplicationKey
-          }
-        }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Failed to schedule bot",
+        details: responseData,
+        request: {
+          meeting_url: meetingUrl,
+          join_at: joinAt,
+          bot_name: botName,
+          bot_config: finalBotConfig,
+          deduplication_key: deduplicationKey
+        }
+      }), {
+        status: response.status,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     // Store bot in database
     const botId = responseData.bot.id;
-    
-    const { data: recording, error } = await supabase
-      .from('meeting_recordings')
-      .insert({
-        user_id: userId,
-        meeting_id: meetingId,
-        bot_id: botId,
-        status: 'scheduled',
-        join_time: joinAt,
-        leave_time: null,
-        meeting_title: meetingTitle
-      })
-      .select()
-      .single();
-    
+    const { data: recording, error } = await supabase.from('meeting_recordings').insert({
+      user_id: userId,
+      meeting_id: meetingId,
+      bot_id: botId,
+      status: 'scheduled',
+      join_time: joinAt,
+      leave_time: null,
+      meeting_title: meetingTitle
+    }).select().single();
     if (error) {
       console.error("[Recall API] Error storing recording:", error);
-      return new Response(
-        JSON.stringify({ error: "Failed to store recording", details: error }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Failed to store recording",
+        details: error
+      }), {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     console.log("[Recall API] Bot scheduled successfully:", botId);
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        recording,
-        recall_response: responseData
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      success: true,
+      recording,
+      recall_response: responseData
+    }), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   } catch (error) {
     console.error("[Recall API] Error scheduling bot:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to schedule bot", details: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      error: "Failed to schedule bot",
+      details: error.message
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   }
 }
-
 // Updated joinMeetingNow function to handle the missing meeting_title column
 async function handleJoinMeetingNow(data) {
   console.log("[Recall API] Joining meeting now:", data.meetingId, data);
-  
   const { userId, meetingId, meetingUrl, meetingTitle, botName = "Action.IT", joinMode = "audio_only" } = data;
-  
   if (!meetingUrl) {
     throw new Error("Meeting URL is required");
   }
-  
   if (!meetingId) {
     throw new Error("Meeting ID is required");
   }
-  
   // Make API call to create bot with meeting URL
   console.log("[Recall API] Making API call to create bot with meeting URL:", meetingUrl);
   console.log("[Recall API] Using join mode:", joinMode);
-  
   // Use the direct bot creation endpoint
   const apiEndpoint = `${RECALL_API_BASE_URL}/api/v1/bot/`;
   console.log("[Recall API] Using API endpoint:", apiEndpoint);
+  
+  // Get the webhook URL for this deployment
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const webhookUrl = `${supabaseUrl}/functions/v1/recall-webhook`;
+  console.log("[Recall API] Webhook URL:", webhookUrl);
   
   // Configure the request body according to the Recall.ai API requirements
   const botConfig = {
@@ -557,24 +563,38 @@ async function handleJoinMeetingNow(data) {
       participant_events: {},
       meeting_metadata: {},
       start_recording_on: "participant_join"
-      },
-  output_media: {
-    camera: {
-      kind: "webpage",
-      config: {
-        url: "https://preview--meet-ai-insights-hub.lovable.app/lovable-uploads/891dceec-4ef9-41ec-b560-23ad08dd996b.png"
+    },
+    output_media: {
+      camera: {
+        kind: "webpage",
+        config: {
+          url: "https://vfsnygvfgtqwjwrwnseg.supabase.co/storage/v1/object/public/web-assets//ehanced%20logo.png"
+        }
       }
-    }
-    }
+    },
+    // Add webhook configuration
+    webhooks: [
+      {
+        url: webhookUrl,
+        events: [
+          "bot.joining_call",
+          "bot.in_waiting_room",
+          "bot.in_call_not_recording",
+          "bot.recording_permission_allowed",
+          "bot.recording_permission_denied",
+          "bot.in_call_recording",
+          "bot.call_ended",
+          "bot.done",
+          "bot.fatal"
+        ]
+      }
+    ]
   };
-  
   // Only add video layout if speaker_view is explicitly requested
   if (joinMode === "speaker_view") {
     botConfig.recording_config.video_mixed_layout = "speaker_view";
   }
-  
   console.log("[Recall API] Using bot config:", JSON.stringify(botConfig, null, 2));
-  
   try {
     // Make the API call
     const response = await fetch(apiEndpoint, {
@@ -585,16 +605,13 @@ async function handleJoinMeetingNow(data) {
       },
       body: JSON.stringify(botConfig)
     });
-    
     console.log("[Recall API] Response status:", response.status);
-    
     // Get response headers for debugging
     const responseHeaders = {};
-    for (const [key, value] of response.headers.entries()) {
+    for (const [key, value] of response.headers.entries()){
       responseHeaders[key] = value;
     }
     console.log("[Recall API] Response headers:", responseHeaders);
-    
     // Check if the response is JSON
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
@@ -602,125 +619,90 @@ async function handleJoinMeetingNow(data) {
       console.error("[Recall API] Non-JSON response:", textResponse);
       throw new Error(`Unexpected response format: ${textResponse.substring(0, 200)}`);
     }
-    
     const responseData = await response.json();
     console.log("[Recall API] Response data:", JSON.stringify(responseData).substring(0, 500));
-    
     if (!response.ok) {
       console.error("[Recall API] Error joining meeting now:", responseData);
       throw new Error(`Failed to join meeting: ${JSON.stringify(responseData)}`);
     }
-    
     // Extract bot ID and other details
     const { id: botId } = responseData;
-    
     if (!botId) {
       console.error("[Recall API] No bot ID in response:", responseData);
       throw new Error("No bot ID returned from API");
     }
-    
     // Check if meeting_recordings table has meeting_title column
-    const { data: tableInfo, error: tableError } = await supabase
-      .from('information_schema.columns')
-      .select('column_name')
-      .eq('table_name', 'meeting_recordings')
-      .eq('column_name', 'meeting_title');
-    
+    const { data: tableInfo, error: tableError } = await supabase.from('information_schema.columns').select('column_name').eq('table_name', 'meeting_recordings').eq('column_name', 'meeting_title');
     console.log("[Recall API] Checking if meeting_title column exists:", tableInfo, tableError);
-    
     const hasMeetingTitleColumn = tableInfo && tableInfo.length > 0;
-    
     // Create recording entry in database - dynamically build the insert object
     const recordingData = {
       user_id: userId,
       meeting_id: meetingId,
       bot_id: botId,
       status: "joining",
-      join_time: new Date().toISOString(),
+      join_time: new Date().toISOString()
     };
-    
     // Only add meeting_title if the column exists
     if (hasMeetingTitleColumn && meetingTitle) {
       recordingData.meeting_title = meetingTitle;
     }
-    
     console.log("[Recall API] Creating recording entry with data:", recordingData);
-    
-    const { data: recording, error } = await supabase
-      .from("meeting_recordings")
-      .insert(recordingData)
-      .select()
-      .single();
-    
+    const { data: recording, error } = await supabase.from("meeting_recordings").insert(recordingData).select().single();
     if (error) {
       console.error("[Recall API] Error creating recording entry:", error);
-      
       // Try inserting without the meeting_title as a fallback
       if (!hasMeetingTitleColumn && meetingTitle) {
         console.log("[Recall API] Trying fallback without meeting_title");
-        const { data: fallbackRecording, error: fallbackError } = await supabase
-          .from("meeting_recordings")
-          .insert({
-            user_id: userId,
-            meeting_id: meetingId,
-            bot_id: botId,
-            status: "joining",
-            join_time: new Date().toISOString()
-          })
-          .select()
-          .single();
-          
+        const { data: fallbackRecording, error: fallbackError } = await supabase.from("meeting_recordings").insert({
+          user_id: userId,
+          meeting_id: meetingId,
+          bot_id: botId,
+          status: "joining",
+          join_time: new Date().toISOString()
+        }).select().single();
         if (fallbackError) {
           console.error("[Recall API] Fallback also failed:", fallbackError);
           throw fallbackError;
         }
-        
         recording = fallbackRecording;
       } else {
         throw error;
       }
     }
-    
     // Return the created recording
-    return new Response(
-      JSON.stringify({
-        recording,
-        bot: {
-          id: botId,
-          url: responseData.url
-        }
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({
+      recording,
+      bot: {
+        id: botId,
+        url: responseData.url
       }
-    );
+    }), {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   } catch (error) {
     console.error("[Recall API] Join meeting error:", error);
-    return new Response(
-      JSON.stringify({
-        error: `Failed to join meeting: ${error.message}`,
-        details: error.stack,
-        request: botConfig
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({
+      error: `Failed to join meeting: ${error.message}`,
+      details: error.stack,
+      request: botConfig
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
       }
-    );
+    });
   }
 }
-
 async function handleStartRecording(requestData) {
-  const { 
-    botId,
-    recordingMode = 'speaker_view',
-    transcriptionProvider = 'meeting_captions'
-  } = requestData;
-  
+  const { botId, recordingMode = 'speaker_view', transcriptionProvider = 'meeting_captions' } = requestData;
   try {
     console.log(`[Recall API] Starting recording for bot: ${botId}`);
-    
     // Make request to Recall API to start recording
     const response = await fetch(`${RECALL_API_BASE_URL}/api/v1/bot/${botId}/start_recording/`, {
       method: "POST",
@@ -730,44 +712,54 @@ async function handleStartRecording(requestData) {
       },
       body: JSON.stringify({
         recording_mode: recordingMode,
-        transcription_options: { provider: transcriptionProvider },
+        transcription_options: {
+          provider: transcriptionProvider
+        },
         real_time_transcription: true
       })
     });
-    
     const responseData = await response.json();
-    
     if (!response.ok) {
       console.error("[Recall API] Error starting recording:", responseData);
-      return new Response(
-        JSON.stringify({ error: "Failed to start recording", details: responseData }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Failed to start recording",
+        details: responseData
+      }), {
+        status: response.status,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     console.log("[Recall API] Recording started successfully");
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        recall_response: responseData
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      success: true,
+      recall_response: responseData
+    }), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   } catch (error) {
     console.error("[Recall API] Error starting recording:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to start recording", details: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      error: "Failed to start recording",
+      details: error.message
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   }
 }
-
 async function handleGetTranscript(requestData) {
   const { botId, userId, meetingId } = requestData;
-  
   try {
     console.log(`[Recall API] Getting transcript for bot: ${botId}`);
-    
     // Make request to Recall API to get transcript
     const response = await fetch(`${RECALL_API_BASE_URL}/api/v1/bot/${botId}/transcript/`, {
       method: "GET",
@@ -776,31 +768,31 @@ async function handleGetTranscript(requestData) {
         "Accept": "application/json"
       }
     });
-    
     const responseData = await response.json();
-    
     if (!response.ok) {
       console.error("[Recall API] Error getting transcript:", responseData);
-      return new Response(
-        JSON.stringify({ error: "Failed to get transcript", details: responseData }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Failed to get transcript",
+        details: responseData
+      }), {
+        status: response.status,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     // Process transcript data
     const transcriptData = responseData;
-    
     // Extract transcript text, speakers, and timestamps
     const speakers = {};
     const timestamps = [];
     let transcriptText = '';
-    
     if (transcriptData.transcript && transcriptData.transcript.monologue) {
-      transcriptData.transcript.monologue.forEach(section => {
+      transcriptData.transcript.monologue.forEach((section)=>{
         const speaker = section.speaker;
         speakers[speaker.id] = speaker.name;
-        
-        section.messages.forEach(message => {
+        section.messages.forEach((message)=>{
           transcriptText += `${speaker.name}: ${message.text}\n`;
           timestamps.push({
             speaker: speaker.id,
@@ -811,116 +803,127 @@ async function handleGetTranscript(requestData) {
         });
       });
     }
-    
     // Store transcript in database
-    const { data: transcript, error } = await supabase
-      .from('transcripts')
-      .upsert({
-        user_id: userId,
-        meeting_id: meetingId,
-        bot_id: botId,
-        transcript_text: transcriptText,
-        speakers: speakers,
-        timestamps: timestamps
-      }, {
-        onConflict: 'meeting_id,bot_id'
-      })
-      .select()
-      .single();
-    
+    const { data: transcript, error } = await supabase.from('transcripts').upsert({
+      user_id: userId,
+      meeting_id: meetingId,
+      bot_id: botId,
+      transcript_text: transcriptText,
+      speakers: speakers,
+      timestamps: timestamps
+    }, {
+      onConflict: 'meeting_id,bot_id'
+    }).select().single();
     if (error) {
       console.error("[Recall API] Error storing transcript:", error);
-      return new Response(
-        JSON.stringify({ error: "Failed to store transcript", details: error }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Failed to store transcript",
+        details: error
+      }), {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     // Update recording status to completed
-    await supabase
-      .from('meeting_recordings')
-      .update({
-        status: 'completed'
-      })
-      .eq('bot_id', botId)
-      .eq('meeting_id', meetingId);
-    
+    await supabase.from('meeting_recordings').update({
+      status: 'completed'
+    }).eq('bot_id', botId).eq('meeting_id', meetingId);
     console.log("[Recall API] Transcript fetched and stored successfully");
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        transcript,
-        recall_response: responseData
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      success: true,
+      transcript,
+      recall_response: responseData
+    }), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   } catch (error) {
     console.error("[Recall API] Error getting transcript:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to get transcript", details: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      error: "Failed to get transcript",
+      details: error.message
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   }
 }
-
 async function handleProcessInsights(requestData) {
   const { transcriptId, meetingId, userId } = requestData;
-  
   try {
     console.log(`[Recall API] Processing insights for transcript: ${transcriptId}`);
-    
     // Get transcript from database
-    const { data: transcriptData, error: transcriptError } = await supabase
-      .from('transcripts')
-      .select('*')
-      .eq('id', transcriptId)
-      .single();
-    
+    const { data: transcriptData, error: transcriptError } = await supabase.from('transcripts').select('*').eq('id', transcriptId).single();
     if (transcriptError || !transcriptData) {
       console.error("[Recall API] Transcript not found:", transcriptError);
-      return new Response(
-        JSON.stringify({ error: "Transcript not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Transcript not found"
+      }), {
+        status: 404,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     // TODO: Implement OpenAI/DeepSeek API call to generate insights
     // For now, create a placeholder insight
-    const { data: insight, error } = await supabase
-      .from('key_insights')
-      .upsert({
-        user_id: userId,
-        meeting_id: meetingId,
-        insight_summary: "This is a placeholder insight summary",
-        action_items: ["Action 1", "Action 2"],
-        decisions: ["Decision 1"]
-      }, {
-        onConflict: 'meeting_id'
-      })
-      .select()
-      .single();
-    
+    const { data: insight, error } = await supabase.from('key_insights').upsert({
+      user_id: userId,
+      meeting_id: meetingId,
+      insight_summary: "This is a placeholder insight summary",
+      action_items: [
+        "Action 1",
+        "Action 2"
+      ],
+      decisions: [
+        "Decision 1"
+      ]
+    }, {
+      onConflict: 'meeting_id'
+    }).select().single();
     if (error) {
       console.error("[Recall API] Error storing insights:", error);
-      return new Response(
-        JSON.stringify({ error: "Failed to store insights", details: error }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        error: "Failed to store insights",
+        details: error
+      }), {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
     }
-    
     console.log("[Recall API] Insights processed and stored successfully");
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        insight
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      success: true,
+      insight
+    }), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   } catch (error) {
     console.error("[Recall API] Error processing insights:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to process insights", details: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      error: "Failed to process insights",
+      details: error.message
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
+      }
+    });
   }
 }

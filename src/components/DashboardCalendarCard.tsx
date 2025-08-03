@@ -161,7 +161,7 @@ export function DashboardCalendarCard({
   }
   
   return (
-    <Card className={cn("overflow-hidden h-full bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/30 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/10 backdrop-blur-sm border-blue-200/50 dark:border-blue-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl", className)}>
+    <Card className={cn("overflow-hidden bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/30 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/10 backdrop-blur-sm border-blue-200/50 dark:border-blue-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl", className)}>
       <CardHeader className="bg-gradient-to-r from-blue-100/50 to-indigo-100/50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b border-blue-200/30 dark:border-blue-800/20">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -179,14 +179,14 @@ export function DashboardCalendarCard({
       </CardHeader>
       <CardContent className="p-0">
         {loading ? (
-          <div className="flex items-center justify-center h-40">
+          <div className="flex items-center justify-center h-32">
             <div className="flex flex-col items-center">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mb-2"></div>
               <p className="text-sm text-blue-700/70 dark:text-blue-300/70">Loading meetings...</p>
             </div>
           </div>
         ) : displayMeetings.length === 0 ? (
-          <div className="text-center py-10">
+          <div className="text-center py-8">
             <div className="bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
               <CalendarIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
             </div>
@@ -194,7 +194,7 @@ export function DashboardCalendarCard({
             <p className="text-sm text-blue-700/70 dark:text-blue-300/70">Enjoy your free time!</p>
           </div>
         ) : (
-          <ScrollArea className="max-h-[400px]">
+          <div className="max-h-[300px] overflow-y-auto">
             <div>
               {displayMeetings.map((meeting) => {
                 const isNow = isMeetingNow(meeting);
@@ -320,7 +320,7 @@ export function DashboardCalendarCard({
                 );
               })}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </CardContent>
 

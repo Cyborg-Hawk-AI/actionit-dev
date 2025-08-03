@@ -16,6 +16,10 @@ import CalendarNavigation from '@/components/calendar/CalendarNavigation';
 import { Link, useNavigate } from 'react-router-dom';
 import { DayCalendarView, WeekCalendarView, MonthCalendarView } from '@/components/calendar/CalendarViews';
 import AgendaView from '@/components/calendar/AgendaView';
+import EventDetailModal from '@/components/calendar/EventDetailModal';
+import PostMeetingInsightsDrawer from '@/components/calendar/PostMeetingInsightsDrawer';
+import LiveMeetingView from '@/components/calendar/LiveMeetingView';
+import MeetingTimelineOverlay from '@/components/calendar/MeetingTimelineOverlay';
 import { JoinMode } from '@/services/recallService';
 import { Meeting } from '@/services/calendarService';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
@@ -25,6 +29,11 @@ const CalendarPage = () => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [view, setView] = useState<'day' | 'week' | 'month' | 'agenda'>('week');
   const [is24Hour, setIs24Hour] = useState<boolean>(false);
+  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isInsightsDrawerOpen, setIsInsightsDrawerOpen] = useState(false);
+  const [showLiveMeeting, setShowLiveMeeting] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
 
   const { 
     meetings,
@@ -88,9 +97,53 @@ const CalendarPage = () => {
   };
   
   const handleEventClick = (meeting: Meeting) => {
-    console.log('Meeting clicked:', meeting);
-    navigate(`/app/meetings/${meeting.id}`);
+    setSelectedMeeting(meeting);
+    setIsEventModalOpen(true);
   };
+
+  const handlePushToCRM = (insights: any) => {
+    console.log('Pushing insights to CRM:', insights);
+    // In real implementation, this would call an API to push to CRM
+  };
+
+  const handleInsightsFeedback = (accurate: boolean) => {
+    console.log('Insights feedback:', accurate);
+    // In real implementation, this would send feedback to improve AI
+  };
+
+  const handleShowInsights = () => {
+    setIsInsightsDrawerOpen(true);
+  };
+
+  const handleStopBot = () => {
+    console.log('Stopping bot...');
+    setShowLiveMeeting(false);
+  };
+
+  const handleRetryJoin = () => {
+    console.log('Retrying bot join...');
+    // In real implementation, this would retry the bot join
+  };
+
+  const handleViewSummary = () => {
+    console.log('Viewing meeting summary...');
+    // In real implementation, this would show the meeting summary
+  };
+
+  // Check if there's a current meeting for live view
+  const currentMeeting = meetings.find(meeting => {
+    const now = new Date();
+    const start = new Date(meeting.start_time);
+    const end = new Date(meeting.end_time);
+    return now >= start && now <= end;
+  });
+
+  // Auto-show live meeting view if there's a current meeting
+  useEffect(() => {
+    if (currentMeeting && !showLiveMeeting) {
+      setShowLiveMeeting(true);
+    }
+  }, [currentMeeting]);
   
   // Filter meetings based on enabled calendars
   const filteredMeetings = meetings.filter(meeting => {
@@ -128,6 +181,14 @@ const CalendarPage = () => {
             </div>
             
             <div className="flex items-center gap-3 md:gap-4">
+              <Button 
+                onClick={() => setShowTimeline(!showTimeline)}
+                variant="outline"
+                size="sm"
+                className="text-blue-600 dark:text-blue-400"
+              >
+                Timeline
+              </Button>
               <Button 
                 onClick={refreshData} 
                 disabled={isSyncing}
@@ -204,6 +265,20 @@ const CalendarPage = () => {
             <div className="text-red-500 p-4">{error}</div>
           ) : (
             <>
+              {/* Timeline Overlay */}
+              {showTimeline && (
+                <div className="p-4">
+                  <MeetingTimelineOverlay
+                    meetings={filteredMeetings}
+                    selectedDate={date || new Date()}
+                    onMeetingClick={handleEventClick}
+                    onJoinMeeting={handleJoinMeeting}
+                    onJoinWithBot={handleJoinWithBot}
+                  />
+                </div>
+              )}
+
+              {/* Calendar Views */}
               {view === 'day' && (
                 <div className="h-full gradient-day-view">
                   <DayCalendarView
@@ -283,6 +358,38 @@ const CalendarPage = () => {
           )}
         </div>
       </div>
+
+      {/* Enhanced Event Detail Modal */}
+      <EventDetailModal
+        open={isEventModalOpen}
+        onOpenChange={setIsEventModalOpen}
+        event={selectedMeeting}
+        onJoinClick={handleJoinMeeting}
+        onJoinWithBot={handleJoinWithBot}
+        joiningMeetings={joiningMeetings}
+      />
+
+      {/* Post-Meeting Insights Drawer */}
+      <PostMeetingInsightsDrawer
+        meeting={selectedMeeting}
+        isOpen={isInsightsDrawerOpen}
+        onClose={() => setIsInsightsDrawerOpen(false)}
+        onPushToCRM={handlePushToCRM}
+        onFeedback={handleInsightsFeedback}
+      />
+
+      {/* Live Meeting View */}
+      {currentMeeting && showLiveMeeting && (
+        <LiveMeetingView
+          meeting={currentMeeting}
+          isVisible={showLiveMeeting}
+          onClose={() => setShowLiveMeeting(false)}
+          onStopBot={handleStopBot}
+          onRetryJoin={handleRetryJoin}
+          onViewSummary={handleViewSummary}
+          onJoinMeeting={handleJoinMeeting}
+        />
+      )}
     </div>
   );
 };

@@ -228,6 +228,17 @@ const Layout: React.FC = () => {
                 <Video className="h-4 w-4" />
                 Join Meeting
               </Button>
+              <div className="text-sm text-muted-foreground">
+                {(() => {
+                  const now = new Date();
+                  const hour = now.getHours();
+                  let greeting = 'Good Morning';
+                  if (hour >= 12 && hour < 17) greeting = 'Good Afternoon';
+                  else if (hour >= 17) greeting = 'Good Evening';
+                  
+                  return `${greeting}, ${user?.email?.split('@')[0] || 'User'} • ${now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+                })()}
+              </div>
             </div>
           </div>
         </div>

@@ -23,11 +23,20 @@ import { InsightsTimelineCard } from '@/components/dashboard/InsightsTimelineCar
 import { BotStatusCard } from '@/components/dashboard/BotStatusCard';
 import { AttendeeIntelligenceCard } from '@/components/dashboard/AttendeeIntelligenceCard';
 import { MeetingComparisonCard } from '@/components/dashboard/MeetingComparisonCard';
+import { EnterpriseRiskDetectionBadge } from '@/components/dashboard/EnterpriseRiskDetectionBadge';
 import { OfflineModeCard } from '@/components/dashboard/OfflineModeCard';
 import { Meeting } from '@/services/calendarService';
 import { JoinMode } from '@/services/recallService';
 import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
+import { useActionItems } from '@/hooks/useActionItems';
+import { useInsights } from '@/hooks/useInsights';
+import { useBotStatus } from '@/hooks/useBotStatus';
+import { useCollaborators } from '@/hooks/useCollaborators';
+import { useMeetingComparison } from '@/hooks/useMeetingComparison';
+import { useEnterpriseRisks } from '@/hooks/useEnterpriseRisks';
 import { Database } from 'lucide-react';
+import { useMeetingAnalytics } from '@/hooks/useMeetingAnalytics';
+import { MeetingAnalyticsCard } from '@/components/dashboard/MeetingAnalyticsCard';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -50,181 +59,71 @@ const Dashboard = () => {
 
   const { data: insights, isLoading: insightsLoading } = useKeyInsights();
   const insightsArray = insights ? [insights] : [];
+  
+  const { 
+    actionItems, 
+    isLoading: actionItemsLoading, 
+    updateStatus: updateActionItemStatus, 
+    snooze: snoozeActionItem 
+  } = useActionItems();
+
+  const { 
+    insights: timelineInsights, 
+    isLoading: timelineInsightsLoading 
+  } = useInsights();
+
+  const { 
+    botMeetings, 
+    botStatus, 
+    isLoading: botStatusLoading,
+    toggleAutoJoin: toggleAutoJoinMutation,
+    toggleAutoRecord: toggleAutoRecordMutation,
+    setJoinMode: setJoinModeMutation,
+    troubleshootBot
+  } = useBotStatus();
+
+  const { 
+    collaborators, 
+    isLoading: collaboratorsLoading 
+  } = useCollaborators();
+
+  const { 
+    meetingComparison, 
+    isLoading: meetingComparisonLoading 
+  } = useMeetingComparison();
+
+  const { 
+    risks: enterpriseRisks, 
+    isLoading: enterpriseRisksLoading,
+    acknowledgeRisk,
+    resolveRisk
+  } = useEnterpriseRisks();
+  const { data: meetingAnalytics, isLoading: meetingAnalyticsLoading } = useMeetingAnalytics();
+
+  // Wrapper functions to match the expected interface
+  const handleBotToggleAutoJoin = (meetingId: string, enabled: boolean) => {
+    toggleAutoJoinMutation({ meetingId, enabled });
+  };
+
+  const handleBotToggleAutoRecord = (meetingId: string, enabled: boolean) => {
+    toggleAutoRecordMutation({ meetingId, enabled });
+  };
+
+  const handleBotSetJoinMode = (meetingId: string, mode: 'audio_only' | 'speaker_view') => {
+    setJoinModeMutation({ meetingId, mode });
+  };
 
   useGoogleAnalytics();
 
-  // Mock data for new dashboard components
-  const mockActionItems = [
-    {
-      id: '1',
-      title: 'Follow up with client on proposal',
-      description: 'Send updated proposal to ABC Corp by Friday',
-      status: 'pending' as const,
-      dueDate: '2024-01-20',
-      assignedTo: 'John Doe',
-      meetingId: 'meeting-1',
-      meetingTitle: 'Client Review Meeting',
-      priority: 'high' as const,
-      createdAt: '2024-01-15T10:00:00Z'
-    },
-    {
-      id: '2',
-      title: 'Schedule team retrospective',
-      description: 'Plan quarterly team retrospective meeting',
-      status: 'completed' as const,
-      dueDate: '2024-01-18',
-      assignedTo: 'Jane Smith',
-      meetingId: 'meeting-2',
-      meetingTitle: 'Sprint Planning',
-      priority: 'medium' as const,
-      createdAt: '2024-01-14T14:00:00Z'
-    },
-    {
-      id: '3',
-      title: 'Review budget allocation',
-      description: 'Analyze Q1 budget vs actual spending',
-      status: 'snoozed' as const,
-      dueDate: '2024-01-25',
-      assignedTo: 'Mike Johnson',
-      meetingId: 'meeting-3',
-      meetingTitle: 'Budget Review',
-      priority: 'low' as const,
-      createdAt: '2024-01-13T09:00:00Z'
-    }
-  ];
 
-  const mockInsights = [
-    {
-      id: '1',
-      title: 'Customer feedback indicates need for mobile app',
-      description: 'Multiple clients mentioned mobile accessibility as a priority',
-      type: 'decision' as const,
-      tags: ['customer', 'mobile', 'priority'],
-      meetingId: 'meeting-1',
-      meetingTitle: 'Product Strategy Meeting',
-      meetingDate: '2024-01-15T10:00:00Z',
-      attendees: ['John Doe', 'Jane Smith', 'Client Rep'],
-      status: 'active' as const,
-      createdAt: '2024-01-15T12:00:00Z'
-    },
-    {
-      id: '2',
-      title: 'Technical debt needs immediate attention',
-      description: 'Legacy system causing 30% performance degradation',
-      type: 'blocker' as const,
-      tags: ['technical', 'blocker', 'performance'],
-      meetingId: 'meeting-2',
-      meetingTitle: 'Engineering Standup',
-      meetingDate: '2024-01-14T09:00:00Z',
-      attendees: ['Dev Team', 'Tech Lead'],
-      status: 'pending' as const,
-      createdAt: '2024-01-14T10:00:00Z'
-    }
-  ];
 
-  const mockBotMeetings = [
-    {
-      id: '1',
-      title: 'Weekly Team Sync',
-      startTime: '2024-01-20T10:00:00Z',
-      endTime: '2024-01-20T11:00:00Z',
-      autoJoin: true,
-      autoRecord: true,
-      joinMode: 'audio_only' as const,
-      status: 'scheduled' as const
-    },
-    {
-      id: '2',
-      title: 'Client Presentation',
-      startTime: '2024-01-21T14:00:00Z',
-      endTime: '2024-01-21T15:00:00Z',
-      autoJoin: true,
-      autoRecord: false,
-      joinMode: 'speaker_view' as const,
-      status: 'scheduled' as const
-    }
-  ];
 
-  const mockCollaborators = [
-    {
-      id: '1',
-      name: 'John Doe',
-      email: 'john@company.com',
-      avatar: undefined,
-      meetingCount: 15,
-      lastMeeting: '2024-01-15T10:00:00Z',
-      totalDuration: 1200,
-      crmData: {
-        company: 'ABC Corp',
-        dealValue: 50000,
-        dealStage: 'negotiation',
-        ticketCount: 3
-      }
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      email: 'jane@company.com',
-      avatar: undefined,
-      meetingCount: 12,
-      lastMeeting: '2024-01-14T14:00:00Z',
-      totalDuration: 900,
-      crmData: {
-        company: 'XYZ Inc',
-        dealValue: 75000,
-        dealStage: 'proposal',
-        ticketCount: 1
-      }
-    }
-  ];
 
-  const mockMeetingComparison = {
-    id: '1',
-    currentMeeting: {
-      id: 'current-1',
-      title: 'Weekly Team Sync',
-      date: '2024-01-15T10:00:00Z',
-      duration: 60,
-      attendees: 8,
-      decisions: 3,
-      actionItems: 5
-    },
-    previousMeetings: [
-      {
-        id: 'prev-1',
-        title: 'Weekly Team Sync',
-        date: '2024-01-08T10:00:00Z',
-        duration: 75,
-        attendees: 7,
-        decisions: 2,
-        actionItems: 4
-      },
-      {
-        id: 'prev-2',
-        title: 'Weekly Team Sync',
-        date: '2024-01-01T10:00:00Z',
-        duration: 90,
-        attendees: 9,
-        decisions: 4,
-        actionItems: 6
-      }
-    ],
-    trends: {
-      duration: 'down' as const,
-      attendees: 'up' as const,
-      decisions: 'up' as const,
-      actionItems: 'down' as const
-    },
-    improvements: [
-      'Meeting duration reduced by 20%',
-      'More focused decision making',
-      'Better time management'
-    ],
-    unresolvedItems: [
-      'Technical debt discussion postponed',
-      'Budget approval still pending'
-    ]
-  };
+
+
+
+
+
 
   const mockSyncQueue = [
     {
@@ -374,19 +273,11 @@ const Dashboard = () => {
 
   // Event handlers for new dashboard components
   const handleActionItemStatusChange = (itemId: string, status: 'pending' | 'completed' | 'snoozed') => {
-    console.log('Action item status changed:', itemId, status);
-    toast({
-      title: "Action item updated",
-      description: `Item marked as ${status}`,
-    });
+    updateActionItemStatus({ itemId, status });
   };
 
   const handleActionItemSnooze = (itemId: string, days: number) => {
-    console.log('Action item snoozed:', itemId, days);
-    toast({
-      title: "Action item snoozed",
-      description: `Reminder set for ${days} day${days > 1 ? 's' : ''} from now`,
-    });
+    snoozeActionItem({ itemId, days });
   };
 
   const handleInsightClick = (insight: any) => {
@@ -394,37 +285,7 @@ const Dashboard = () => {
     navigate(`/app/insights/${insight.id}`);
   };
 
-  const handleBotToggleAutoJoin = (meetingId: string, enabled: boolean) => {
-    console.log('Bot auto-join toggled:', meetingId, enabled);
-    toast({
-      title: enabled ? "Bot will auto-join" : "Bot auto-join disabled",
-      description: `Meeting: ${meetingId}`,
-    });
-  };
 
-  const handleBotToggleAutoRecord = (meetingId: string, enabled: boolean) => {
-    console.log('Bot auto-record toggled:', meetingId, enabled);
-    toast({
-      title: enabled ? "Bot will record meeting" : "Bot recording disabled",
-      description: `Meeting: ${meetingId}`,
-    });
-  };
-
-  const handleBotSetJoinMode = (meetingId: string, mode: 'audio_only' | 'speaker_view') => {
-    console.log('Bot join mode set:', meetingId, mode);
-    toast({
-      title: "Bot join mode updated",
-      description: `Mode: ${mode}`,
-    });
-  };
-
-  const handleBotTroubleshoot = () => {
-    console.log('Bot troubleshoot clicked');
-    toast({
-      title: "Troubleshooting",
-      description: "Running diagnostics...",
-    });
-  };
 
   const handleCollaboratorClick = (collaborator: any) => {
     console.log('Collaborator clicked:', collaborator);
@@ -434,6 +295,19 @@ const Dashboard = () => {
   const handleViewComparison = (comparison: any) => {
     console.log('View comparison clicked:', comparison);
     navigate(`/app/comparisons/${comparison.id}`);
+  };
+
+  const handleViewRisk = (risk: any) => {
+    console.log('View risk:', risk);
+    // TODO: Implement risk detail view
+  };
+
+  const handleAcknowledgeRisk = (riskId: string) => {
+    acknowledgeRisk(riskId);
+  };
+
+  const handleResolveRisk = (riskId: string) => {
+    resolveRisk(riskId);
   };
 
   const handleToggleOfflineMode = (enabled: boolean) => {
@@ -476,40 +350,22 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50/50 via-blue-50/30 to-indigo-50/20 dark:from-gray-950/50 dark:via-blue-950/30 dark:to-indigo-950/20">
-      <div className="container mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
-        {/* Enhanced Header with Apple-inspired design */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full p-2">
-                <Sparkles className="h-5 w-5 text-white" />
-              </div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sf-display">
-                Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}
-              </h1>
-            </div>
-            <p className="text-base text-gray-600 dark:text-gray-400 sf-text">
-              {format(new Date(), 'EEEE, MMMM d, yyyy')} • {format(new Date(), 'h:mm a')}
-            </p>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3">
-            <SearchInput 
-              placeholder="Search meetings..."
-            />
-            <Button 
-              onClick={() => refreshData()}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Calendar className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Refresh Calendar</span>
-              <span className="sm:hidden">Refresh</span>
-            </Button>
-          </div>
+      <div className="container mx-auto px-4 py-2">
+        {/* Compact Header with Refresh Button */}
+        <div className="flex justify-end mb-2">
+          <Button 
+            onClick={() => refreshData()}
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground"
+            title="Refresh Calendar"
+          >
+            <Calendar className="h-4 w-4" />
+          </Button>
         </div>
 
         {error && (
-          <Card className="border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-950/20 backdrop-blur-sm rounded-xl">
+          <Card className="border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-950/20 backdrop-blur-sm rounded-xl mb-4">
             <CardContent className="pt-6">
               <p className="text-red-700 dark:text-red-300">{error}</p>
             </CardContent>
@@ -531,19 +387,19 @@ const Dashboard = () => {
         {!searchQuery && (
           <>
             {/* Enhanced Stats Overview with functional color coding */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-3 gap-2 mb-6">
               {/* Calendar & Meeting Colors */}
-              <Card className="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/30 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/10 backdrop-blur-sm border-blue-200/50 dark:border-blue-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+              <Card className="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-purple-50/30 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-purple-950/10 backdrop-blur-sm border-blue-200/50 dark:border-blue-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-lg">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 py-2">
+                  <CardTitle className="text-xs font-semibold text-blue-900 dark:text-blue-100">
                     Today's Meetings
                   </CardTitle>
-                  <div className="bg-blue-100 dark:bg-blue-900/30 rounded-full p-2">
-                    <CalendarCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <div className="bg-blue-100 dark:bg-blue-900/30 rounded-full p-1">
+                    <CalendarCheck className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1">
+                <CardContent className="pt-0 px-3 pb-2">
+                  <div className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-1">
                     {todayMeetings.length}
                   </div>
                   <p className="text-xs text-blue-700/70 dark:text-blue-300/70">
@@ -553,63 +409,37 @@ const Dashboard = () => {
               </Card>
 
               {/* Insights & Analytics Colors */}
-              <Card className="bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-cyan-50/30 dark:from-emerald-950/20 dark:via-teal-950/10 dark:to-cyan-950/10 backdrop-blur-sm border-emerald-200/50 dark:border-emerald-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+              <Card className="bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-cyan-50/30 dark:from-emerald-950/20 dark:via-teal-950/10 dark:to-cyan-950/10 backdrop-blur-sm border-emerald-200/50 dark:border-emerald-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-lg">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 py-2">
+                  <CardTitle className="text-xs font-semibold text-emerald-900 dark:text-emerald-100">
                     This Week
                   </CardTitle>
-                  <div className="bg-emerald-100 dark:bg-emerald-900/30 rounded-full p-2">
-                    <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <div className="bg-emerald-100 dark:bg-emerald-900/30 rounded-full p-1">
+                    <Activity className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl md:text-3xl font-bold text-emerald-900 dark:text-emerald-100 mb-2">
+                <CardContent className="pt-0 px-3 pb-2">
+                  <div className="text-xl font-bold text-emerald-900 dark:text-emerald-100 mb-1">
                     {thisWeekMeetings.length}
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-emerald-700/70 dark:text-emerald-300/70">Progress</span>
-                      <span className="text-emerald-700/70 dark:text-emerald-300/70 font-medium">
-                        {weeklyProgress}%
-                      </span>
-                    </div>
-                    <Progress value={weeklyProgress} className="h-2 bg-emerald-100 dark:bg-emerald-900/30" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Recent Activity Colors */}
-              <Card className="bg-gradient-to-br from-purple-50/80 via-violet-50/40 to-fuchsia-50/30 dark:from-purple-950/20 dark:via-violet-950/10 dark:to-fuchsia-950/10 backdrop-blur-sm border-purple-200/50 dark:border-purple-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-semibold text-purple-900 dark:text-purple-100">
-                    Key Insights
-                  </CardTitle>
-                  <div className="bg-purple-100 dark:bg-purple-900/30 rounded-full p-2">
-                    <Zap className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl md:text-3xl font-bold text-purple-900 dark:text-purple-100 mb-1">
-                    {insightsArray.length}
-                  </div>
-                  <p className="text-xs text-purple-700/70 dark:text-purple-300/70">
-                    {insightsArray.filter(i => Array.isArray(i.action_items) && i.action_items.length > 0).length} with actions
+                  <p className="text-xs text-emerald-700/70 dark:text-emerald-300/70">
+                    {weeklyProgress}% completed
                   </p>
                 </CardContent>
               </Card>
 
               {/* System Status Colors */}
-              <Card className="bg-gradient-to-br from-amber-50/80 via-orange-50/40 to-red-50/30 dark:from-amber-950/20 dark:via-orange-950/10 dark:to-red-950/10 backdrop-blur-sm border-amber-200/50 dark:border-amber-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-xl">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              <Card className="bg-gradient-to-br from-amber-50/80 via-orange-50/40 to-red-50/30 dark:from-amber-950/20 dark:via-orange-950/10 dark:to-red-950/10 backdrop-blur-sm border-amber-200/50 dark:border-amber-800/30 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] rounded-lg">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 py-2">
+                  <CardTitle className="text-xs font-semibold text-amber-900 dark:text-amber-100">
                     Next Meeting
                   </CardTitle>
-                  <div className="bg-amber-100 dark:bg-amber-900/30 rounded-full p-2">
-                    <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <div className="bg-amber-100 dark:bg-amber-900/30 rounded-full p-1">
+                    <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-xl md:text-2xl font-bold text-amber-900 dark:text-amber-100 mb-1">
+                <CardContent className="pt-0 px-3 pb-2">
+                  <div className="text-lg font-bold text-amber-900 dark:text-amber-100 mb-1">
                     {nextMeeting ? getTimeUntilMeeting(nextMeeting) : 'None'}
                   </div>
                   {nextMeeting && (
@@ -644,38 +474,49 @@ const Dashboard = () => {
 
                 {/* New Action Items Card */}
                 <ActionItemsCard 
-                  actionItems={mockActionItems}
+                  actionItems={actionItems || []}
                   onStatusChange={handleActionItemStatusChange}
                   onSnooze={handleActionItemSnooze}
                 />
 
                 {/* New Insights Timeline Card */}
                 <InsightsTimelineCard 
-                  insights={mockInsights}
+                  insights={timelineInsights || []}
                   onInsightClick={handleInsightClick}
                 />
 
                 {/* New Bot Status Card */}
                 <BotStatusCard 
-                  botMeetings={mockBotMeetings}
-                  isOnline={true}
-                  syncStatus="synced"
+                  botMeetings={botMeetings}
+                  isOnline={botStatus.isOnline}
+                  syncStatus={botStatus.syncStatus}
                   onToggleAutoJoin={handleBotToggleAutoJoin}
                   onToggleAutoRecord={handleBotToggleAutoRecord}
                   onSetJoinMode={handleBotSetJoinMode}
-                  onTroubleshoot={handleBotTroubleshoot}
+                  onTroubleshoot={troubleshootBot}
                 />
 
                 {/* New Attendee Intelligence Card */}
                 <AttendeeIntelligenceCard 
-                  collaborators={mockCollaborators}
+                  collaborators={collaborators}
                   onCollaboratorClick={handleCollaboratorClick}
                 />
 
                 {/* New Meeting Comparison Card */}
-                <MeetingComparisonCard 
-                  comparison={mockMeetingComparison}
-                  onViewComparison={handleViewComparison}
+                {meetingComparison && (
+                  <MeetingComparisonCard 
+                    comparison={meetingComparison}
+                    onViewComparison={handleViewComparison}
+                  />
+                )}
+
+                {/* New Enterprise Risk Detection Badge */}
+                <EnterpriseRiskDetectionBadge 
+                  risks={enterpriseRisks}
+                  isLoading={enterpriseRisksLoading}
+                  onViewRisk={handleViewRisk}
+                  onAcknowledgeRisk={handleAcknowledgeRisk}
+                  onResolveRisk={handleResolveRisk}
                 />
               </div>
 
@@ -690,87 +531,13 @@ const Dashboard = () => {
                   } : null}
                 />
                 
-                {/* Enhanced Quick Actions with Apple-inspired design */}
-                <Card className="glass-card border-purple-200/50 dark:border-purple-800/30">
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Target className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                      Quick Actions
-                    </CardTitle>
-                    <CardDescription>Common tasks and shortcuts</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all duration-200 hover:scale-[1.02]" 
-                      asChild
-                    >
-                      <Link to="/app/calendar">
-                        <Calendar className="mr-2 h-4 w-4" />
-                        View Full Calendar
-                      </Link>
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start hover:bg-purple-50 dark:hover:bg-purple-950/20 transition-all duration-200 hover:scale-[1.02]" 
-                      onClick={() => setShowJoinModal(true)}
-                    >
-                      <Bot className="mr-2 h-4 w-4" />
-                      Join Meeting with Bot
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all duration-200 hover:scale-[1.02]" 
-                      onClick={() => refreshData()}
-                    >
-                      <Zap className="mr-2 h-4 w-4" />
-                      Sync Calendar Data
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all duration-200 hover:scale-[1.02]" 
-                      asChild
-                    >
-                      <Link to="/app/settings">
-                        <Users className="mr-2 h-4 w-4" />
-                        Manage Settings
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+
 
                 {/* New Analytics Card */}
-                <Card className="glass-card border-emerald-200/50 dark:border-emerald-800/30">
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                      Meeting Analytics
-                    </CardTitle>
-                    <CardDescription>Your meeting performance insights</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Weekly Completion</span>
-                      <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                        {weeklyProgress}%
-                      </span>
-                    </div>
-                    <Progress value={weeklyProgress} className="h-2" />
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Total Meetings</span>
-                      <span className="text-sm font-medium">{meetings.length}</span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">This Week</span>
-                      <span className="text-sm font-medium">{thisWeekMeetings.length}</span>
-                    </div>
-                  </CardContent>
-                </Card>
+                <MeetingAnalyticsCard 
+                  analytics={meetingAnalytics}
+                  isLoading={meetingAnalyticsLoading}
+                />
 
                 {/* New Offline Mode Card */}
                 <OfflineModeCard 
