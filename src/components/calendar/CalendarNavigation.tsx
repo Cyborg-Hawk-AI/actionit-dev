@@ -59,20 +59,25 @@ const CalendarNavigation = ({ selectedDate, view, onDateChange }: CalendarNaviga
 
   const getFormattedDateRange = () => {
     switch (view) {
-      case 'day':
+      case 'day': {
         return format(selectedDate, 'EEEE, MMMM d, yyyy');
-      case 'week':
+      }
+      case 'week': {
         const startOfWeek = new Date(selectedDate);
         startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay());
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
         return `${format(startOfWeek, 'MMM d')} - ${format(endOfWeek, 'MMM d, yyyy')}`;
-      case 'month':
+      }
+      case 'month': {
         return format(selectedDate, 'MMMM yyyy');
-      case 'agenda':
+      }
+      case 'agenda': {
         return format(selectedDate, 'MMMM yyyy');
-      default:
+      }
+      default: {
         return format(selectedDate, 'MMMM yyyy');
+      }
     }
   };
 

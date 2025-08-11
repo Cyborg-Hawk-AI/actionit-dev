@@ -31,25 +31,25 @@ serve(async (req) => {
     
     const { event, data } = payload;
     
-    // Handle different webhook event types
-    if (event === "bot.joining_call") {
-      return await handleBotJoiningCall(data);
-    } else if (event === "bot.in_waiting_room") {
-      return await handleBotInWaitingRoom(data);
-    } else if (event === "bot.in_call_not_recording") {
-      return await handleBotInCallNotRecording(data);
-    } else if (event === "bot.recording_permission_allowed") {
-      return await handleBotRecordingPermissionAllowed(data);
-    } else if (event === "bot.recording_permission_denied") {
-      return await handleBotRecordingPermissionDenied(data);
-    } else if (event === "bot.in_call_recording") {
-      return await handleBotInCallRecording(data);
+    // Handle actual Recall.ai webhook event types
+    if (event === "bot.done") {
+      return await handleBotDone(data);
     } else if (event === "bot.call_ended") {
       return await handleBotCallEnded(data);
-    } else if (event === "bot.done") {
-      return await handleBotDone(data);
     } else if (event === "bot.fatal") {
       return await handleBotFatal(data);
+    } else if (event === "recording.done") {
+      return await handleRecordingDone(data);
+    } else if (event === "transcript.done") {
+      return await handleTranscriptDone(data);
+    } else if (event === "analysis.done") {
+      return await handleAnalysisDone(data);
+    } else if (event === "bot_status_change") {
+      return await handleBotStatusChange(data);
+    } else if (event === "recording_started") {
+      return await handleRecordingStarted(data);
+    } else if (event === "recording_stopped") {
+      return await handleRecordingStopped(data);
     } else {
       console.log(`[Recall Webhook] Unhandled event type: ${event}`);
       return new Response(JSON.stringify({ status: "ignored", event }), {
@@ -399,24 +399,48 @@ async function handleRecordingStopped(data) {
   console.log(`[Recall Webhook] Recording stopped for bot ${bot_id}`);
   
   try {
-    // Update the recording status
-    await supabase
-      .from('meeting_recordings')
-      .update({
-        status: "completed"
-      })
-      .eq('bot_id', bot_id);
+    // Update recording status
+    await supabase.from('meeting_recordings').update({
+      status: 'recording_stopped',
+      leave_time: new Date().toISOString()
+    }).eq('bot_id', bot_id);
     
-    return new Response(
-      JSON.stringify({ success: true, status: "recording_stopped", bot_id }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.log(`[Recall Webhook] Updated recording status for bot ${bot_id}`);
+    
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
   } catch (error) {
-    console.error(`[Recall Webhook] Error handling recording stopped for bot ${bot_id}:`, error);
-    return new Response(
-      JSON.stringify({ error: error.message, stack: error.stack }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error(`[Recall Webhook] Error handling recording stopped:`, error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
+}
+
+async function handleRecordingDone(data) {
+  const { bot_id } = data;
+  console.log(`[Recall Webhook] Recording done for bot ${bot_id}`);
+  
+  try {
+    // Update recording status
+    await supabase.from('meeting_recordings').update({
+      status: 'recording_done',
+      leave_time: new Date().toISOString()
+    }).eq('bot_id', bot_id);
+    
+    console.log(`[Recall Webhook] Updated recording status for bot ${bot_id}`);
+    
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  } catch (error) {
+    console.error(`[Recall Webhook] Error handling recording done:`, error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
   }
 }
 
@@ -738,8 +762,10 @@ async function handleBotCallEnded(data) {
       })
       .eq('bot_id', botId);
     
-    // Trigger transcript processing
-    await fetchAndStoreTranscript(botId, null, null, null);
+    console.log(`[Recall Webhook] Updated recording status for bot ${botId}`);
+    
+    // Note: Transcript processing will be handled by the transcript.done event
+    // when the transcript is actually available
     
     return new Response(
       JSON.stringify({ success: true, status: "bot_call_ended", botId }),
@@ -770,8 +796,10 @@ async function handleBotDone(data) {
       })
       .eq('bot_id', botId);
     
-    // Trigger transcript processing
-    await fetchAndStoreTranscript(botId, null, null, null);
+    console.log(`[Recall Webhook] Updated recording status for bot ${botId}`);
+    
+    // Note: Transcript processing will be handled by the transcript.done event
+    // when the transcript is actually available
     
     return new Response(
       JSON.stringify({ success: true, status: "bot_done", botId }),

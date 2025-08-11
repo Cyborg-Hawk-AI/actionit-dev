@@ -69,9 +69,8 @@ serve(async (req)=>{
       return response;
     };
     switch(action){
-      case 'create_event':
-        console.log("[Google Calendar API] Creating event:", event.summary);
-        // Ensure conference data is properly formatted for Google Meet
+      case 'create_event': {
+        console.log("[Google Calendar API] Creating event in calendar:", calendarId);
         if (event.conferenceData) {
           event.conferenceData = {
             createRequest: {
@@ -101,7 +100,8 @@ serve(async (req)=>{
             'Content-Type': 'application/json'
           }
         });
-      case 'update_event':
+      }
+      case 'update_event': {
         console.log("[Google Calendar API] Updating event:", eventId);
         const updateResponse = await makeGoogleAPICall(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}?sendUpdates=all`, {
           method: 'PUT',
@@ -122,7 +122,8 @@ serve(async (req)=>{
             'Content-Type': 'application/json'
           }
         });
-      case 'delete_event':
+      }
+      case 'delete_event': {
         console.log("[Google Calendar API] Deleting event:", eventId);
         const deleteResponse = await makeGoogleAPICall(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}?sendUpdates=all`, {
           method: 'DELETE'
@@ -141,7 +142,8 @@ serve(async (req)=>{
             'Content-Type': 'application/json'
           }
         });
-      case 'setup_webhook':
+      }
+      case 'setup_webhook': {
         console.log("[Google Calendar API] Setting up webhook for calendar:", calendarId);
         const webhookUrl = `${supabaseUrl}/functions/v1/google-calendar-webhook`;
         const channelId = `action-it-${userId}-${Date.now()}`;
@@ -169,8 +171,10 @@ serve(async (req)=>{
             'Content-Type': 'application/json'
           }
         });
-      default:
+      }
+      default: {
         throw new Error(`Unknown action: ${action}`);
+      }
     }
   } catch (error) {
     console.error("[Google Calendar API] Error:", error);
