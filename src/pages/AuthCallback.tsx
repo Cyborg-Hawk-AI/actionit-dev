@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -19,6 +19,7 @@ const AuthCallback = () => {
   const [redirectCountdown, setRedirectCountdown] = useState(5);
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
+  const hasProcessed = useRef(false);
   
   const addDebugLog = (msg: string) => {
     console.log(`[Auth Callback Debug] ${msg}`);
@@ -47,6 +48,14 @@ const AuthCallback = () => {
   
   useEffect(() => {
     const handleCallback = async () => {
+      // Prevent multiple executions
+      if (hasProcessed.current) {
+        addDebugLog('Callback already processed, skipping');
+        return;
+      }
+      
+      hasProcessed.current = true;
+      
       try {
         setMessage('Completing authentication process...');
         addDebugLog('Starting Google OAuth callback processing');
@@ -108,7 +117,7 @@ const AuthCallback = () => {
     };
     
     handleCallback();
-  }, [searchParams, handleOAuthCallback]);
+  }, [searchParams]);
   
   const handleRetry = () => {
     setIsRetrying(true);
