@@ -17,13 +17,17 @@ const awsConfig = {
     : undefined, // Let AWS SDK auto-detect credentials
 };
 
-// Debug AWS configuration
-if (process.env.NODE_ENV === 'development') {
-  console.log('[AWS Config] Region:', awsConfig.region);
-  console.log('[AWS Config] Has access key:', !!process.env.AWS_ACCESS_KEY_ID);
-  console.log('[AWS Config] Has secret key:', !!process.env.AWS_SECRET_ACCESS_KEY);
-  console.log('[AWS Config] Using explicit credentials:', !!awsConfig.credentials);
-}
+// Debug AWS configuration - Always log in production for debugging
+console.log('[AWS Config] Environment check:', {
+  NODE_ENV: process.env.NODE_ENV,
+  AWS_REGION: process.env.AWS_REGION,
+  HAS_ACCESS_KEY: !!process.env.AWS_ACCESS_KEY_ID,
+  HAS_SECRET_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
+  ACCESS_KEY_PREFIX: process.env.AWS_ACCESS_KEY_ID?.substring(0, 8) + '...',
+  SECRET_KEY_PREFIX: process.env.AWS_SECRET_ACCESS_KEY?.substring(0, 8) + '...',
+  USING_EXPLICIT_CREDENTIALS: !!awsConfig.credentials,
+  REGION: awsConfig.region,
+});
 
 // Initialize AWS clients
 export const secretsManagerClient = new SecretsManagerClient(awsConfig);

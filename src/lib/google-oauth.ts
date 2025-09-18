@@ -58,26 +58,18 @@ export async function generateGoogleAuthUrl(state?: string): Promise<string> {
       HAS_SECRET_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
     });
     
-    const config = await getCachedGoogleOAuthConfig();
-    console.log('[Google OAuth] Config retrieved:', {
-      hasClientId: !!config.client_id,
-      hasClientSecret: !!config.client_secret,
-      redirectUri: config.redirect_uri,
-    });
+    // Use API route instead of direct AWS calls
+    const response = await fetch('/api/auth/google');
     
-    const params = new URLSearchParams({
-      client_id: config.client_id,
-      redirect_uri: config.redirect_uri,
-      response_type: 'code',
-      scope: OAUTH_SCOPES,
-      access_type: 'offline', // Required to get refresh token
-      prompt: 'consent', // Force consent screen to get refresh token
-      ...(state && { state }),
-    });
-
-    const authUrl = `${GOOGLE_OAUTH_ENDPOINTS.authorization}?${params.toString()}`;
-    console.log('[Google OAuth] Generated auth URL:', authUrl);
-    return authUrl;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.details || 'Failed to get OAuth URL from API');
+    }
+    
+    const data = await response.json();
+    console.log('[Google OAuth] Received auth URL from API:', data.authUrl);
+    
+    return data.authUrl;
   } catch (error) {
     console.error('[Google OAuth] Failed to generate auth URL:', error);
     console.error('[Google OAuth] Error details:', {
