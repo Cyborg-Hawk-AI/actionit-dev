@@ -299,7 +299,7 @@ export async function getRecallCalendar(calendarId: string): Promise<RecallCalen
   try {
     const response = await fetch(`${RECALL_BASE}/api/v2/calendars/${calendarId}`, {
       headers: {
-        'Authorization': `Bearer ${RECALL_API_KEY}`,
+        'Authorization': `Token ${RECALL_API_KEY}`,
       },
     });
 
@@ -336,7 +336,7 @@ export async function listRecallCalendarEvents(
 
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${RECALL_API_KEY}`,
+        'Authorization': `Token ${RECALL_API_KEY}`,
       },
     });
 

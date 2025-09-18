@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 const RECALL_BASE = "https://us-west-2.recall.ai";
-const RECALL_API_KEY = "8c0933578c0fbc870e520b43432b392aba8c3da9"; // This needs to be updated with a valid key
+const RECALL_API_KEY = "a6fd1686cffa8f9a5266b53e1b10ed199f64c344";
 const RECALL_GOOGLE_OAUTH_SECRET_NAME = "axnt-recall-google-oauth";
 
 interface CreateCalendarRequest {
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     const recallResponse = await fetch(`${RECALL_BASE}/api/v2/calendars/`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${RECALL_API_KEY}`,
+        'Authorization': `Token ${RECALL_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
