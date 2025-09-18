@@ -81,17 +81,24 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     try {
+      setIsLoading(true);
       await loginWithGoogle();
+      // Note: loginWithGoogle() will redirect to Google OAuth, so this function won't return
     } catch (error) {
       console.error('[Login] Google login error:', error);
+      toast.error("Failed to initiate Google login");
+      setIsLoading(false);
     }
   };
 
   const handleMicrosoftLogin = async () => {
     try {
+      setIsLoading(true);
       await loginWithMicrosoft();
     } catch (error) {
       console.error('[Login] Microsoft login error:', error);
+      toast.error("Microsoft login is not yet implemented");
+      setIsLoading(false);
     }
   };
 
@@ -140,16 +147,28 @@ const Login = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Button variant="outline" className="w-full" type="button" onClick={handleGoogleLogin}>
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              type="button" 
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+            >
               <svg viewBox="0 0 24 24" className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12.0003 4.67676C13.3274 4.67676 14.5252 5.15466 15.4762 6.01126L18.9181 2.57092C17.0273 0.924957 14.6364 0 12.0003 0C7.5999 0 3.74903 2.55366 1.88989 6.34417L5.81333 9.42717C6.76946 6.66275 9.17332 4.67676 12.0003 4.67676Z" fill="#EA4335" />
                 <path d="M23.49 12.2744C23.49 11.4607 23.4177 10.6402 23.2654 9.83606H12V14.4673H18.4547C18.1354 16.0128 17.26 17.2545 15.9795 18.1051L19.8943 21.1938C22.1393 19.1274 23.49 16.0128 23.49 12.2744Z" fill="#4285F4" />
                 <path d="M5.81331 14.573C5.55167 13.8562 5.40747 13.0898 5.40747 12.3001C5.40747 11.5103 5.55167 10.7439 5.81331 10.0271L1.88987 6.94409C0.985309 8.5338 0.5 10.3544 0.5 12.3001C0.5 14.2457 0.985309 16.0663 1.88987 17.656L5.81331 14.573Z" fill="#FBBC05" />
                 <path d="M12.0004 24C14.7029 24 16.975 23.1052 18.6837 21.5132L14.769 18.4243C13.9143 19.0392 12.8614 19.3233 12.0004 19.3233C9.17345 19.3233 6.76957 17.3373 5.81345 14.573L1.89001 17.656C3.75001 21.4465 7.60088 24 12.0004 24Z" fill="#34A853" />
               </svg>
-              Google
+              {isLoading ? 'Redirecting...' : 'Google'}
             </Button>
-            <Button variant="outline" className="w-full" type="button" onClick={handleMicrosoftLogin}>
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              type="button" 
+              onClick={handleMicrosoftLogin}
+              disabled={isLoading}
+            >
               <svg viewBox="0 0 23 23" className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg">
                 <path fill="#f3f3f3" d="M0 0h23v23H0z"></path>
                 <path fill="#f35325" d="M1 1h10v10H1z"></path>
@@ -157,7 +176,7 @@ const Login = () => {
                 <path fill="#05a6f0" d="M1 12h10v10H1z"></path>
                 <path fill="#ffba08" d="M12 12h10v10H12z"></path>
               </svg>
-              Microsoft
+              {isLoading ? 'Loading...' : 'Microsoft'}
             </Button>
           </div>
           
