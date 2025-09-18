@@ -172,13 +172,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       // Connect to Recall.ai calendar integration
       try {
-        console.log('[AuthContext] Connecting to Recall.ai calendar integration...');
         const recallCalendar = await connectToRecallCalendar(userInfo.id, {
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token || '',
           expires_at: storedSession.expiresAt,
         });
-        console.log('[AuthContext] Recall.ai calendar connected successfully');
         
         // Update user object with Recall.ai calendar information
         const updatedUser = {
@@ -200,7 +198,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (recallError) {
         console.error('[AuthContext] Failed to connect to Recall.ai:', recallError);
         // Don't fail the OAuth flow if Recall.ai connection fails
-        console.warn('[AuthContext] Continuing without Recall.ai integration');
         toast.warning("Google Calendar connected, but Recall.ai integration is not available. You can try connecting later in Settings.");
       }
       
@@ -220,18 +217,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     expires_at: number;
   }) => {
     try {
-      console.log('[AuthContext] Connecting to Recall.ai calendar...');
+      console.log('[Recall.ai Debug] Starting Recall.ai calendar connection...');
+      console.log('[Recall.ai Debug] User ID:', userId);
+      console.log('[Recall.ai Debug] Google tokens received:', {
+        hasAccessToken: !!googleTokens.access_token,
+        hasRefreshToken: !!googleTokens.refresh_token,
+        expiresAt: googleTokens.expires_at,
+        accessTokenPrefix: googleTokens.access_token?.substring(0, 10) + '...',
+        refreshTokenPrefix: googleTokens.refresh_token?.substring(0, 10) + '...'
+      });
       
       // Import the Recall.ai calendar integration
+      console.log('[Recall.ai Debug] Importing recall-calendar module...');
       const { createRecallCalendar } = await import('@/lib/recall-calendar');
+      console.log('[Recall.ai Debug] Successfully imported createRecallCalendar function');
       
       // Get Google OAuth credentials from environment
+      console.log('[Recall.ai Debug] Checking environment variables...');
       const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
       const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
       
+      console.log('[Recall.ai Debug] Environment variables:', {
+        hasGoogleClientId: !!googleClientId,
+        hasGoogleClientSecret: !!googleClientSecret,
+        googleClientIdPrefix: googleClientId?.substring(0, 10) + '...',
+        googleClientSecretPrefix: googleClientSecret?.substring(0, 10) + '...',
+        allEnvVars: Object.keys(process.env).filter(key => key.includes('GOOGLE') || key.includes('RECALL'))
+      });
+      
       if (!googleClientId || !googleClientSecret) {
+        console.error('[Recall.ai Debug] Missing Google OAuth credentials:', {
+          missingClientId: !googleClientId,
+          missingClientSecret: !googleClientSecret,
+          availableEnvVars: Object.keys(process.env).filter(key => key.includes('GOOGLE'))
+        });
         throw new Error('Google OAuth credentials not configured');
       }
+      
+      console.log('[Recall.ai Debug] All credentials found, creating Recall.ai calendar...');
       
       // Create Recall.ai calendar
       const calendar = await createRecallCalendar(
@@ -240,20 +263,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         googleClientSecret
       );
       
-      console.log('[AuthContext] Recall.ai calendar connected:', calendar.id);
+      console.log('[Recall.ai Debug] Recall.ai calendar created successfully:', {
+        calendarId: calendar.id,
+        status: calendar.status,
+        platform: calendar.platform,
+        platformEmail: calendar.platform_email,
+        createdAt: calendar.created_at
+      });
       
       // Store the calendar ID in the user session for future reference
+      console.log('[Recall.ai Debug] Storing calendar info in user session...');
       const currentSession = await getUserSession();
       if (currentSession) {
         currentSession.recallCalendarId = calendar.id;
         currentSession.recallCalendarStatus = calendar.status;
         // Update the stored session with Recall.ai calendar info
         localStorage.setItem('user_session', JSON.stringify(currentSession));
+        console.log('[Recall.ai Debug] Session updated with Recall.ai calendar info');
+      } else {
+        console.warn('[Recall.ai Debug] No current session found to update');
       }
       
       return calendar;
     } catch (error) {
-      console.error('[AuthContext] Failed to connect to Recall.ai calendar:', error);
+      console.error('[Recall.ai Debug] Failed to connect to Recall.ai calendar:', error);
+      console.error('[Recall.ai Debug] Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        cause: error instanceof Error ? error.cause : undefined
+      });
       throw error;
     }
   };
