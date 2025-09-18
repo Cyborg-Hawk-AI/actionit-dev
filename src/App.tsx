@@ -7,11 +7,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { Toaster } from '@/components/ui/toaster';
 import Layout from '@/components/Layout';
 import Index from '@/pages/Index';
-import ComingSoon from '@/pages/ComingSoon';
 import Login from '@/pages/Login';
-import Dashboard from '@/pages/Dashboard';
-import CalendarPage from '@/pages/Calendar';
-import MeetingDetail from '@/pages/MeetingDetail';
 import Settings from '@/pages/Settings';
 import AuthCallback from '@/pages/AuthCallback';
 import NotFound from '@/pages/NotFound';
@@ -39,9 +35,6 @@ function App() {
                 {/* Default route now points to home page */}
                 <Route path="/" element={<Index />} />
                 
-                {/* Coming soon page preserved at /coming-soon */}
-                <Route path="/coming-soon" element={<ComingSoon />} />
-                
                 {/* Auth routes */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
@@ -50,11 +43,9 @@ function App() {
                 <Route path="/TOS" element={<TermsOfService />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 
-                {/* App routes */}
+                {/* App routes - Settings is now the default app page */}
                 <Route path="/app" element={<Layout />}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="calendar" element={<CalendarPage />} />
-                  <Route path="meetings/:meetingId" element={<MeetingDetail />} />
+                  <Route index element={<Settings />} />
                   <Route path="settings" element={<Settings />} />
                 </Route>
                 

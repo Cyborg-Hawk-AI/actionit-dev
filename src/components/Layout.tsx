@@ -1,79 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Outlet, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import {
-  Calendar,
   Settings as SettingsIcon,
-  Home,
   LogOut,
   Menu,
   X,
-  Video,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
-import SearchInput from '@/components/dashboard/SearchInput';
-import JoinMeetingModal from '@/components/dashboard/JoinMeetingModal';
-import { useRecallData } from '@/hooks/useRecallData';
-import { JoinMode } from '@/services/recallService';
-import { toast } from '@/hooks/use-toast';
 
 const Layout: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showJoinModal, setShowJoinModal] = useState(false);
-  
-  const { joinMeetingWithBot } = useRecallData();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
 
   const navigationItems = [
-    { to: '/app', icon: Home, label: 'Dashboard' },
-    { to: '/app/calendar', icon: Calendar, label: 'Calendar' },
-    { to: '/app/settings', icon: SettingsIcon, label: 'Settings' },
+    { to: '/app', icon: SettingsIcon, label: 'Settings' },
   ];
-
-  const handleSearch = (term: string) => {
-    // Search functionality is handled in SearchInput component
-  };
-
-  const handleJoinMeeting = async (meetingInfo: {
-    url: string;
-    title: string;
-    joinMode: JoinMode;
-    useBot: boolean;
-  }) => {
-    if (!meetingInfo.useBot) {
-      // If no bot is requested, we're done after creating the meeting record
-      return;
-    }
-
-    try {
-      // The meeting record was already created in the modal
-      // Now we need to trigger the bot to join
-      
-      // Note: We would need the meeting ID here to join with bot
-      // For now, just show success message as the bot logic will be handled by webhooks
-      toast({
-        title: "Bot Setup Complete",
-        description: "The meeting bot will join when the meeting starts.",
-      });
-    } catch (error) {
-      console.error('[Layout] Error setting up bot for meeting:', error);
-      toast({
-        title: "Bot Setup Failed",
-        description: error instanceof Error ? error.message : "Failed to setup meeting bot",
-        variant: "destructive",
-      });
-    }
-  };
 
   const NavContent = ({ mobile = false }: { mobile?: boolean }) => (
     <>
@@ -212,22 +163,10 @@ const Layout: React.FC = () => {
         <div className="fixed top-0 left-16 right-0 z-30 bg-card/80 dark:bg-[#1A1A1A]/80 backdrop-blur-sm border-b border-border/40 dark:border-[#2C2C2C]/40">
           <div className="flex items-center justify-between px-6 py-3">
             <div className="flex-1">
-              {/* Left side can be used for page title or breadcrumbs in the future */}
+              <h1 className="text-lg font-semibold text-foreground">Settings</h1>
             </div>
             
             <div className="flex items-center gap-4">
-              <SearchInput 
-                placeholder="Search meetings..." 
-                onSearch={handleSearch}
-                className="w-80"
-              />
-              <Button 
-                onClick={() => setShowJoinModal(true)}
-                className="action-button interactive-element flex items-center gap-2"
-              >
-                <Video className="h-4 w-4" />
-                Join Meeting
-              </Button>
               <div className="text-sm text-muted-foreground">
                 {(() => {
                   const now = new Date();
@@ -247,34 +186,9 @@ const Layout: React.FC = () => {
       {/* Main content */}
       <main className={`flex-1 ${isMobile ? 'pt-16' : 'ml-16 pt-16'}`}>
         <div className={`container mx-auto ${isMobile ? 'px-4 py-4' : 'px-4 py-6'}`}>
-          {/* Mobile Search and Join Button */}
-          {isMobile && (
-            <div className="mb-6 space-y-4">
-              <SearchInput 
-                placeholder="Search meetings..." 
-                onSearch={handleSearch}
-                className="w-full"
-              />
-              <Button 
-                onClick={() => setShowJoinModal(true)}
-                className="action-button interactive-element flex items-center gap-2 w-full"
-              >
-                <Video className="h-4 w-4" />
-                Join Meeting
-              </Button>
-            </div>
-          )}
-          
           <Outlet />
         </div>
       </main>
-
-      {/* Join Meeting Modal */}
-      <JoinMeetingModal
-        open={showJoinModal}
-        onOpenChange={setShowJoinModal}
-        onJoinMeeting={handleJoinMeeting}
-      />
     </div>
   );
 };

@@ -5,12 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { RecallSettings } from '@/components/settings/RecallSettings';
 import { CalendarSettings } from '@/components/settings/CalendarSettings';
+import { OAuthTestPanel } from '@/components/testing/OAuthTestPanel';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Palette } from 'lucide-react';
-import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 
 const Settings = () => {
-  useGoogleAnalytics();
 
   return (
     <div className="container mx-auto p-4 space-y-8">
@@ -71,6 +70,15 @@ const Settings = () => {
               </p>
             </div>
           </div>
+
+          {/* OAuth Testing Panel - Only show in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="space-y-6">
+              <Separator />
+              <h3 className="text-lg font-medium mb-2">OAuth Testing</h3>
+              <OAuthTestPanel />
+            </div>
+          )}
         </div>
       </div>
     </div>

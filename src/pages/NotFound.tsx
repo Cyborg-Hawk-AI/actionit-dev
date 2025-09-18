@@ -1,6 +1,5 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 
 const NotFound = () => {
   const location = useLocation();
@@ -11,8 +10,6 @@ const NotFound = () => {
       location.pathname
     );
   }, [location.pathname]);
-
-  useGoogleAnalytics();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">

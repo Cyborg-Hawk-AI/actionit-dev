@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from '@/context/AuthContext';
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 
 const Login = () => {
@@ -19,7 +18,6 @@ const Login = () => {
   const [existingUserEmail, setExistingUserEmail] = useState('');
   const navigate = useNavigate();
   const { login, signUp, loginWithGoogle, loginWithMicrosoft, isAuthenticated } = useAuth();
-  useGoogleAnalytics();
 
   if (isAuthenticated) {
     return <Navigate to="/app" />;

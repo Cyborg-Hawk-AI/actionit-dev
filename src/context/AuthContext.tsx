@@ -1,8 +1,32 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { Session, User } from "@supabase/supabase-js";
+import { 
+  generateGoogleAuthUrl, 
+  exchangeCodeForTokens, 
+  getGoogleUserInfo,
+  getUserSession,
+  clearUserSession,
+  revokeToken,
+  storeUserSession,
+  type GoogleUserInfo,
+  type OAuthTokens
+} from "@/lib/google-oauth";
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+  verified_email: boolean;
+}
+
+interface Session {
+  user: User;
+  access_token: string;
+  refresh_token?: string;
+  expires_at: number;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -12,8 +36,10 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithMicrosoft: () => Promise<void>;
-  logout: () => void;
+  handleOAuthCallback: (code: string, state?: string) => Promise<void>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,66 +50,56 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        
-        if (event === 'SIGNED_IN') {
-          toast.success("Successfully signed in!");
+    // Check for existing Google OAuth session
+    const initializeAuth = async () => {
+      try {
+        const googleSession = await getUserSession();
+        if (googleSession) {
+          setUser(googleSession.user);
+          setSession({
+            user: googleSession.user,
+            access_token: googleSession.tokens.access_token,
+            refresh_token: googleSession.tokens.refresh_token,
+            expires_at: googleSession.expiresAt,
+          });
         }
-        if (event === 'SIGNED_OUT') {
-          toast.info("You have been signed out.");
-        }
+      } catch (error) {
+        console.error('[AuthContext] Error initializing auth:', error);
+        clearUserSession();
+      } finally {
+        setLoading(false);
       }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      setLoading(false);
-    }).catch(error => {
-      console.error('[AuthContext] Error fetching session:', error);
-      setLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
     };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { error, data } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        let userMessage = "Failed to log in.";
+      // TODO: Replace with AWS API Gateway call
+      // For now, simulate login for test account
+      if (email === 'test@action.it' && password === 'testpassword123') {
+        const mockUser: User = {
+          id: 'test-user-id',
+          email: email,
+          name: 'Test User'
+        };
+        const mockSession: Session = {
+          user: mockUser,
+          access_token: 'mock-access-token'
+        };
         
-        if (error.message.includes('Invalid login credentials')) {
-          userMessage = "Invalid email or password. Please check your credentials and try again.";
-        } else if (error.message.includes('Email not confirmed')) {
-          userMessage = "Please check your email and click the verification link before logging in.";
-        } else if (error.message.includes('rate limit') || error.message.includes('28 seconds')) {
-          userMessage = "Too many login attempts. Please wait a moment before trying again.";
-        } else if (error.message.includes('User not found')) {
-          userMessage = "No account found with this email. Please sign up first.";
-        } else {
-          userMessage = error.message;
-        }
-        
-        toast.error(userMessage);
-        throw error;
+        setUser(mockUser);
+        setSession(mockSession);
+        localStorage.setItem('auth_session', JSON.stringify(mockSession));
+        toast.success("Successfully signed in!");
+        return Promise.resolve();
+      } else {
+        throw new Error('Invalid email or password. Please check your credentials and try again.');
       }
-      
-      return Promise.resolve();
-    } catch (error) {
-      toast.error("Failed to log in.");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to log in.");
       return Promise.reject(error);
     } finally {
       setLoading(false);
@@ -93,33 +109,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { error, data } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) {
-        let userMessage = "Failed to sign up.";
-        
-        if (error.message.includes('rate limit') || error.message.includes('28 seconds')) {
-          userMessage = "Too many signup attempts. Please wait a moment before trying again.";
-        } else if (error.message.includes('already registered') || error.message.includes('already exists')) {
-          userMessage = "An account with this email already exists. Please try logging in instead.";
-        } else if (error.message.includes('invalid email')) {
-          userMessage = "Please enter a valid email address.";
-        } else if (error.message.includes('password')) {
-          userMessage = "Password must be at least 6 characters long.";
-        } else {
-          userMessage = error.message;
-        }
-        
-        toast.error(userMessage);
-        throw error;
-      }
+      // TODO: Replace with AWS API Gateway call
+      // For now, simulate signup
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       toast.success("Sign up successful! Please check your email for verification.");
       return Promise.resolve();
-    } catch (error) {
+    } catch (error: any) {
       toast.error("Failed to sign up.");
       return Promise.reject(error);
     } finally {
@@ -129,79 +125,107 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   
   const loginWithGoogle = async () => {
     try {
-      // Important: Use the raw origin without any modification for redirectTo
-      const origin = window.location.origin;
-      const redirectTo = `${origin}/auth/callback`;
+      setLoading(true);
       
-      const { error, data } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          scopes: [
-            'https://www.googleapis.com/auth/calendar',
-            'https://www.googleapis.com/auth/calendar.events',
-            'https://www.googleapis.com/auth/calendar.calendarlist',
-            'https://www.googleapis.com/auth/calendar.settings.readonly',
-            'https://www.googleapis.com/auth/calendar.acls',
-            'https://www.googleapis.com/auth/calendar.freebusy',
-            'https://www.googleapis.com/auth/calendar.app.created'
-          ].join(' ')
-        }
-      });
-      
-      if (error) {
-        toast.error(error.message);
-        throw error;
-      }
-      
-      if (data?.url) {
-        // Parse and log the components of the URL
-        try {
-          const url = new URL(data.url);
-        } catch (e) {
-          console.error('[AuthContext] Failed to parse OAuth URL:', e);
-        }
-      }
+      // Generate Google OAuth URL and redirect
+      const authUrl = await generateGoogleAuthUrl();
+      window.location.href = authUrl;
     } catch (error) {
-      toast.error("Google login failed");
+      console.error('[AuthContext] Google login failed:', error);
+      toast.error("Failed to initiate Google login");
+      setLoading(false);
     }
   };
   
   const loginWithMicrosoft = async () => {
     try {
-      // Important: Use the raw origin without any modification for redirectTo
-      const origin = window.location.origin;
-      const redirectTo = `${origin}/auth/callback`;
-      
-      const { error, data } = await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: {
-          redirectTo,
-          scopes: 'openid profile email'
-        }
-      });
-      
-      if (error) {
-        toast.error(error.message);
-        throw error;
-      }
-      
-      if (data?.url) {
-        console.log('[AuthContext] Redirecting to Microsoft OAuth URL:', data.url);
-      }
+      // TODO: Replace with AWS API Gateway OAuth flow
+      toast.info("Microsoft OAuth integration coming soon with AWS backend");
     } catch (error) {
       toast.error("Microsoft login failed");
     }
   };
   
-  const logout = async () => {
+  const handleOAuthCallback = async (code: string, state?: string) => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('[AuthContext] Logout error:', error);
+      setLoading(true);
+      
+      // Exchange code for tokens
+      const tokens = await exchangeCodeForTokens(code);
+      
+      // Get user info
+      const userInfo = await getGoogleUserInfo(tokens.access_token);
+      
+      // Store session with encrypted tokens
+      const storedSession = await storeUserSession(userInfo, tokens);
+      
+      // Update context state
+      setUser(userInfo);
+      setSession({
+        user: userInfo,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: storedSession.expiresAt,
+      });
+      
+      toast.success("Successfully signed in with Google!");
+    } catch (error) {
+      console.error('[AuthContext] OAuth callback failed:', error);
+      toast.error("Failed to complete Google sign-in");
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshSession = async () => {
+    try {
+      const googleSession = await getUserSession();
+      if (googleSession) {
+        setUser(googleSession.user);
+        setSession({
+          user: googleSession.user,
+          access_token: googleSession.tokens.access_token,
+          refresh_token: googleSession.tokens.refresh_token,
+          expires_at: googleSession.expiresAt,
+        });
+      } else {
+        // Session is invalid, clear state
+        setUser(null);
+        setSession(null);
       }
     } catch (error) {
+      console.error('[AuthContext] Session refresh failed:', error);
+      setUser(null);
+      setSession(null);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      setLoading(true);
+      
+      // Revoke Google token if we have one
+      if (session?.access_token) {
+        try {
+          await revokeToken(session.access_token);
+        } catch (revokeError) {
+          console.warn('[AuthContext] Failed to revoke token:', revokeError);
+          // Continue with logout even if revoke fails
+        }
+      }
+      
+      // Clear local session
+      clearUserSession();
+      setUser(null);
+      setSession(null);
+      
+      toast.info("You have been signed out.");
+    } catch (error) {
       console.error('[AuthContext] Logout failed:', error);
+      toast.error("Logout failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -216,8 +240,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       signUp,
       loginWithGoogle,
       loginWithMicrosoft,
+      handleOAuthCallback,
       logout,
-      isAuthenticated
+      isAuthenticated,
+      refreshSession
     }}>
       {children}
     </AuthContext.Provider>

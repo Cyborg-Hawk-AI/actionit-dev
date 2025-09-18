@@ -5,11 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useGoogleAnalytics } from '@/hooks/useGoogleAnalytics';
 
 const Index = () => {
-  useGoogleAnalytics();
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,32 +35,16 @@ const Index = () => {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase
-        .from('email_waitlist')
-        .insert([{ email: trimmedEmail }]);
-
-      if (error) {
-        if (error.code === '23505') { // Unique constraint violation
-          toast({
-            title: "Already on the list!",
-            description: "This email is already registered for early access.",
-          });
-        } else {
-          console.error('Error inserting email:', error);
-          toast({
-            title: "Something went wrong",
-            description: "Please try again later.",
-            variant: "destructive"
-          });
-        }
-      } else {
-        setIsSubmitted(true);
-        toast({
-          title: "You're on the list!",
-          description: "We'll notify you when Action.IT launches with your free month.",
-        });
-        setEmail('');
-      }
+      // TODO: Replace with AWS API Gateway call
+      // For now, just simulate success
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setIsSubmitted(true);
+      toast({
+        title: "You're on the list!",
+        description: "We'll notify you when Action.IT launches with your free month.",
+      });
+      setEmail('');
     } catch (error) {
       console.error('Unexpected error:', error);
       toast({
