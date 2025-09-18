@@ -1,5 +1,4 @@
-import { getCachedGoogleOAuthConfig } from './aws-secrets';
-import { encryptWithKMS, decryptWithKMS, type EncryptedToken } from './aws-kms';
+import { type EncryptedToken } from './aws-kms';
 
 // Google OAuth endpoints
 const GOOGLE_OAUTH_ENDPOINTS = {
@@ -109,28 +108,24 @@ export async function generateGoogleAuthUrl(state?: string): Promise<string> {
  */
 export async function exchangeCodeForTokens(code: string): Promise<OAuthTokens> {
   try {
-    const config = await getCachedGoogleOAuthConfig();
+    console.log('[Google OAuth] Exchanging code for tokens...');
     
-    const response = await fetch(GOOGLE_OAUTH_ENDPOINTS.token, {
+    const response = await fetch('/api/auth/token', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        client_id: config.client_id,
-        client_secret: config.client_secret,
-        code,
-        grant_type: 'authorization_code',
-        redirect_uri: config.redirect_uri,
-      }),
+      body: JSON.stringify({ code }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Token exchange failed: ${errorData.error_description || errorData.error}`);
+      console.error('[Google OAuth] Token exchange failed:', errorData);
+      throw new Error(`Token exchange failed: ${errorData.details || errorData.error}`);
     }
 
     const tokens = await response.json() as OAuthTokens;
+    console.log('[Google OAuth] Tokens received successfully');
     
     // Validate required fields
     if (!tokens.access_token || !tokens.expires_in) {
@@ -149,27 +144,24 @@ export async function exchangeCodeForTokens(code: string): Promise<OAuthTokens> 
  */
 export async function refreshAccessToken(refreshToken: string): Promise<OAuthTokens> {
   try {
-    const config = await getCachedGoogleOAuthConfig();
+    console.log('[Google OAuth] Refreshing access token...');
     
-    const response = await fetch(GOOGLE_OAUTH_ENDPOINTS.token, {
+    const response = await fetch('/api/auth/refresh', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        client_id: config.client_id,
-        client_secret: config.client_secret,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token',
-      }),
+      body: JSON.stringify({ refresh_token: refreshToken }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Token refresh failed: ${errorData.error_description || errorData.error}`);
+      console.error('[Google OAuth] Token refresh failed:', errorData);
+      throw new Error(`Token refresh failed: ${errorData.details || errorData.error}`);
     }
 
     const tokens = await response.json() as OAuthTokens;
+    console.log('[Google OAuth] Token refreshed successfully');
     
     if (!tokens.access_token) {
       throw new Error('Invalid refresh response: missing access token');
@@ -237,16 +229,14 @@ export async function revokeToken(token: string): Promise<void> {
 }
 
 /**
- * Stores user session with encrypted tokens
+ * Stores user session with tokens
  */
 export async function storeUserSession(
   user: GoogleUserInfo, 
   tokens: OAuthTokens
 ): Promise<StoredUserSession> {
   try {
-    // Encrypt tokens using KMS
-    const tokensJson = JSON.stringify(tokens);
-    const encryptedTokens = await encryptWithKMS(tokensJson);
+    console.log('[Google OAuth] Storing user session...');
     
     // Calculate expiration time
     const expiresAt = Date.now() + (tokens.expires_in * 1000);
@@ -254,12 +244,16 @@ export async function storeUserSession(
     const session: StoredUserSession = {
       user,
       tokens,
-      encryptedTokens,
+      encryptedTokens: {
+        encryptedData: JSON.stringify(tokens), // Simple encoding for now
+        keyId: 'local-storage'
+      },
       expiresAt,
     };
     
     // Store in localStorage (in production, consider more secure storage)
     localStorage.setItem('google_oauth_session', JSON.stringify(session));
+    console.log('[Google OAuth] User session stored successfully');
     
     return session;
   } catch (error) {
