@@ -3,9 +3,7 @@
  * Based on recall-ai-setup.md documentation
  */
 
-const RECALL_BASE = "https://us-east-1.recall.ai";
-const RECALL_API_KEY = "8c0933578c0fbc870e520b43432b392aba8c3da9";
-const RECALL_GOOGLE_OAUTH_SECRET_NAME = "axnt-recall-google-oauth";
+const RECALL_BASE = "https://us-west-2.recall.ai";
 
 export interface RecallCalendar {
   id: string;
@@ -39,61 +37,6 @@ export interface RecallBot {
   created_at: string;
 }
 
-interface GoogleOAuthCredentials {
-  client_id: string;
-  client_secret: string;
-}
-
-/**
- * Get Google OAuth credentials from AWS Secrets Manager
- */
-async function getGoogleOAuthCredentials(): Promise<GoogleOAuthCredentials> {
-  console.log('[Recall.ai Debug] ===== GETTING GOOGLE OAUTH CREDENTIALS FROM AWS =====');
-  console.log('[Recall.ai Debug] Secret name:', RECALL_GOOGLE_OAUTH_SECRET_NAME);
-  
-  try {
-    // Import AWS SDK
-    const { SecretsManagerClient, GetSecretValueCommand } = await import('@aws-sdk/client-secrets-manager');
-    
-    // Initialize AWS client
-    const client = new SecretsManagerClient({
-      region: process.env.AWS_REGION || 'us-east-1',
-      credentials: process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY 
-        ? {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-          }
-        : undefined,
-    });
-    
-    console.log('[Recall.ai Debug] AWS client initialized');
-    
-    // Get secret from AWS Secrets Manager
-    const command = new GetSecretValueCommand({
-      SecretId: RECALL_GOOGLE_OAUTH_SECRET_NAME,
-    });
-    
-    const response = await client.send(command);
-    console.log('[Recall.ai Debug] Secret retrieved from AWS');
-    
-    if (!response.SecretString) {
-      throw new Error('No secret string found in AWS Secrets Manager');
-    }
-    
-    const credentials = JSON.parse(response.SecretString);
-    console.log('[Recall.ai Debug] Credentials parsed:', {
-      hasClientId: !!credentials.client_id,
-      hasClientSecret: !!credentials.client_secret,
-      clientIdPrefix: credentials.client_id?.substring(0, 10) + '...',
-      clientSecretPrefix: credentials.client_secret?.substring(0, 10) + '...'
-    });
-    
-    return credentials;
-  } catch (error) {
-    console.error('[Recall.ai Debug] Failed to get Google OAuth credentials from AWS:', error);
-    throw error;
-  }
-}
 
 /**
  * Get a Recall.ai calendar auth token for a user
@@ -175,33 +118,9 @@ export async function generateRecallOAuthUrl(
   console.log('[Recall.ai Debug] ===== GENERATING RECALL.AI OAUTH URL =====');
   console.log('[Recall.ai Debug] Recall auth token (masked):', recallAuthToken.substring(0, 10) + '...');
   
-  // Get Google OAuth credentials from AWS Secrets Manager
-  const credentials = await getGoogleOAuthCredentials();
-  
-  const redirectUri = `${RECALL_BASE}/api/v1/calendar/google_oauth_callback/`;
-  const scopes = 'https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/userinfo.email';
-  
-  const state = JSON.stringify({
-    recall_calendar_auth_token: recallAuthToken,
-    google_oauth_redirect_url: redirectUri,
-    success_url: successUrl || `${window.location.origin}/app/settings`,
-    error_url: errorUrl || `${window.location.origin}/app/settings`,
-  });
-  
-  const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-  oauthUrl.searchParams.set('scope', scopes);
-  oauthUrl.searchParams.set('access_type', 'offline');
-  oauthUrl.searchParams.set('prompt', 'consent');
-  oauthUrl.searchParams.set('include_granted_scopes', 'true');
-  oauthUrl.searchParams.set('response_type', 'code');
-  oauthUrl.searchParams.set('state', state);
-  oauthUrl.searchParams.set('redirect_uri', redirectUri);
-  oauthUrl.searchParams.set('client_id', credentials.client_id);
-  
-  console.log('[Recall.ai Debug] Generated OAuth URL:', oauthUrl.toString());
-  console.log('[Recall.ai Debug] ===== RECALL.AI OAUTH URL GENERATED =====');
-  
-  return oauthUrl.toString();
+  // Note: This function is no longer used since we're using the server-side API route
+  // The OAuth flow is now handled entirely through the server-side createRecallCalendar function
+  throw new Error('This function is deprecated. Use the server-side API route instead.');
 }
 
 /**
@@ -294,19 +213,20 @@ export async function createRecallCalendar(
  * Get calendar status from Recall.ai
  */
 export async function getRecallCalendar(calendarId: string): Promise<RecallCalendar> {
-  console.log('[Recall Calendar] Getting calendar status:', calendarId);
+  console.log('[Recall Calendar] Getting calendar status via server-side API:', calendarId);
   
   try {
-    const response = await fetch(`${RECALL_BASE}/api/v2/calendars/${calendarId}`, {
+    const response = await fetch(`/api/recall/calendar/${calendarId}`, {
+      method: 'GET',
       headers: {
-        'Authorization': `Token ${RECALL_API_KEY}`,
+        'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       console.error('[Recall Calendar] Failed to get calendar:', errorData);
-      throw new Error(`Failed to get calendar: ${errorData.detail || errorData.error || response.statusText}`);
+      throw new Error(`Failed to get calendar: ${errorData.error || errorData.details || response.statusText}`);
     }
 
     const calendar = await response.json();
@@ -326,24 +246,25 @@ export async function listRecallCalendarEvents(
   calendarId: string,
   updatedSince?: number
 ): Promise<RecallCalendarEvent[]> {
-  console.log('[Recall Calendar] Listing events for calendar:', calendarId);
+  console.log('[Recall Calendar] Listing events for calendar via server-side API:', calendarId);
   
   try {
-    let url = `${RECALL_BASE}/api/v2/calendar-events/?calendar_id=${calendarId}`;
+    let url = `/api/recall/calendar/${calendarId}/events`;
     if (updatedSince) {
-      url += `&updated_at__gte=${updatedSince}`;
+      url += `?updated_since=${updatedSince}`;
     }
 
     const response = await fetch(url, {
+      method: 'GET',
       headers: {
-        'Authorization': `Token ${RECALL_API_KEY}`,
+        'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       console.error('[Recall Calendar] Failed to list events:', errorData);
-      throw new Error(`Failed to list events: ${errorData.detail || errorData.error || response.statusText}`);
+      throw new Error(`Failed to list events: ${errorData.error || errorData.details || response.statusText}`);
     }
 
     const data = await response.json();

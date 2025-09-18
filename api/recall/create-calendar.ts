@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 const RECALL_BASE = "https://us-west-2.recall.ai";
-const RECALL_API_KEY = "a6fd1686cffa8f9a5266b53e1b10ed199f64c344";
 const RECALL_GOOGLE_OAUTH_SECRET_NAME = "axnt-recall-google-oauth";
 
 interface CreateCalendarRequest {
@@ -54,9 +53,15 @@ export async function POST(request: NextRequest) {
     console.log('[Recall.ai API] Credentials parsed:', {
       hasClientId: !!credentials.client_id,
       hasClientSecret: !!credentials.client_secret,
+      hasRecallApiKey: !!credentials.recall_api_key,
       clientIdPrefix: credentials.client_id?.substring(0, 10) + '...',
-      clientSecretPrefix: credentials.client_secret?.substring(0, 10) + '...'
+      clientSecretPrefix: credentials.client_secret?.substring(0, 10) + '...',
+      recallApiKeyPrefix: credentials.recall_api_key?.substring(0, 10) + '...'
     });
+
+    if (!credentials.recall_api_key) {
+      throw new Error('Recall.ai API key not found in AWS Secrets Manager');
+    }
 
     // Create Recall.ai calendar
     console.log('[Recall.ai API] Creating Recall.ai calendar...');
@@ -80,7 +85,7 @@ export async function POST(request: NextRequest) {
     const recallResponse = await fetch(`${RECALL_BASE}/api/v2/calendars/`, {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${RECALL_API_KEY}`,
+        'Authorization': `Token ${credentials.recall_api_key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
