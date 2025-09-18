@@ -171,7 +171,7 @@ aws iam update-assume-role-policy \
 ```
 AWS_REGION=us-east-1
 AWS_ROLE_ARN=arn:aws:iam::YOUR_ACCOUNT_ID:role/VercelActionITRole
-AWS_EXTERNAL_ID=vercel-actionit-oauth
+AWS_EXTERNAL_ID=vercel-axnt-oauth
 GOOGLE_OAUTH_SECRET_NAME=axnt/google-oauth
 KMS_KEY_ALIAS=alias/axnt-oauth
 DYNAMODB_OAUTH_TABLE=axnt-oauth-tokens

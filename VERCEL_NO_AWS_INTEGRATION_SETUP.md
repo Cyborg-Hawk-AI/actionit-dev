@@ -97,7 +97,7 @@ AWS_SECRET_ACCESS_KEY=... (from Step 1)
 
 # Google OAuth Configuration
 GOOGLE_OAUTH_SECRET_NAME=axnt-google-auth
-KMS_KEY_ALIAS=alias/axnt-secrets-decrypt
+KMS_KEY_ALIAS=alias/axnt-google-authenticator-key
 
 # DynamoDB Configuration
 DYNAMODB_OAUTH_TABLE=axnt-oauth-tokens

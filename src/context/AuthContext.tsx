@@ -168,6 +168,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         expires_at: storedSession.expiresAt,
       });
       
+      // Connect to Recall.ai calendar integration
+      try {
+        console.log('[AuthContext] Connecting to Recall.ai calendar integration...');
+        await connectToRecallCalendar(userInfo.id, {
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token || '',
+          expires_at: storedSession.expiresAt,
+        });
+        console.log('[AuthContext] Recall.ai calendar connected successfully');
+      } catch (recallError) {
+        console.error('[AuthContext] Failed to connect to Recall.ai:', recallError);
+        // Don't fail the OAuth flow if Recall.ai connection fails
+        toast.error("Google Calendar connected, but Recall.ai integration failed. Please try again later.");
+      }
+      
       toast.success("Successfully signed in with Google!");
     } catch (error) {
       console.error('[AuthContext] OAuth callback failed:', error);
@@ -177,6 +192,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     }
   }, []);
+
+  const connectToRecallCalendar = async (userId: string, googleTokens: {
+    access_token: string;
+    refresh_token: string;
+    expires_at: number;
+  }) => {
+    try {
+      console.log('[AuthContext] Connecting to Recall.ai calendar...');
+      
+      const response = await fetch('/api/recall/calendar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          google_tokens: googleTokens,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Failed to connect to Recall.ai calendar');
+      }
+
+      const calendar = await response.json();
+      console.log('[AuthContext] Recall.ai calendar connected:', calendar.id);
+      
+      return calendar;
+    } catch (error) {
+      console.error('[AuthContext] Failed to connect to Recall.ai calendar:', error);
+      throw error;
+    }
+  };
 
   const refreshSession = async () => {
     try {
