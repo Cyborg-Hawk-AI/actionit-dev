@@ -13,13 +13,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     console.log('[Recall API] Calendar endpoint called:', req.method);
+    console.log('[Recall API] Environment check:', {
+      NODE_ENV: process.env.NODE_ENV,
+      HAS_RECALL_API_KEY: !!process.env.RECALL_API_KEY,
+      RECALL_API_KEY_PREFIX: process.env.RECALL_API_KEY?.substring(0, 8) + '...',
+    });
     
     // Get Recall API key from environment
     const recallApiKey = process.env.RECALL_API_KEY;
     if (!recallApiKey) {
+      console.error('[Recall API] RECALL_API_KEY environment variable is not set');
       throw new Error('RECALL_API_KEY environment variable is not set');
     }
 
+    console.log('[Recall API] Initializing Recall client with API key');
     const recallClient = new RecallAPIClient(recallApiKey);
 
     switch (req.method) {

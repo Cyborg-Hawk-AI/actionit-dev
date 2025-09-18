@@ -60,6 +60,13 @@ class RecallAPIClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     
+    console.log('[Recall API] Making request to:', url);
+    console.log('[Recall API] Request options:', {
+      method: options.method || 'GET',
+      hasBody: !!options.body,
+      apiKeyPrefix: this.apiKey.substring(0, 8) + '...',
+    });
+    
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -69,12 +76,26 @@ class RecallAPIClient {
       },
     });
 
+    console.log('[Recall API] Response status:', response.status);
+    console.log('[Recall API] Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Recall API error: ${response.status} - ${errorData.detail || response.statusText}`);
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (parseError) {
+        const responseText = await response.text();
+        console.error('[Recall API] Failed to parse error response:', responseText);
+        throw new Error(`Recall API error: ${response.status} - ${response.statusText} - ${responseText.substring(0, 200)}`);
+      }
+      
+      console.error('[Recall API] API error:', errorData);
+      throw new Error(`Recall API error: ${response.status} - ${errorData.detail || errorData.error || response.statusText}`);
     }
 
-    return response.json();
+    const responseData = await response.json();
+    console.log('[Recall API] Response data received');
+    return responseData;
   }
 
   /**

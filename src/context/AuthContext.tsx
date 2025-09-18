@@ -177,10 +177,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           expires_at: storedSession.expiresAt,
         });
         console.log('[AuthContext] Recall.ai calendar connected successfully');
+        toast.success("Successfully connected to Recall.ai!");
       } catch (recallError) {
         console.error('[AuthContext] Failed to connect to Recall.ai:', recallError);
         // Don't fail the OAuth flow if Recall.ai connection fails
-        toast.error("Google Calendar connected, but Recall.ai integration failed. Please try again later.");
+        console.warn('[AuthContext] Continuing without Recall.ai integration');
+        toast.warning("Google Calendar connected, but Recall.ai integration is not available. You can try connecting later in Settings.");
       }
       
       toast.success("Successfully signed in with Google!");
