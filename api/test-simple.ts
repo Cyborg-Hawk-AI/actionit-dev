@@ -1,42 +1,27 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import { NextRequest, NextResponse } from 'next/server';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+export async function GET(request: NextRequest) {
   try {
-    console.log('[Simple Test] API endpoint called');
+    console.log('[Test] Simple API route working');
     
-    return res.json({
-      status: 'success',
-      message: 'Simple API endpoint is working - updated',
+    return NextResponse.json({
+      success: true,
+      message: 'Simple API route is working',
       timestamp: new Date().toISOString(),
       environment: {
-        NODE_ENV: process.env.NODE_ENV,
-        HAS_RECALL_API_KEY: !!process.env.RECALL_API_KEY,
-        HAS_AWS_REGION: !!process.env.AWS_REGION,
-      },
-      newFiles: 'Testing if new API routes are deployed'
+        nodeEnv: process.env.NODE_ENV,
+        vercelEnv: process.env.VERCEL_ENV
+      }
     });
-    
+
   } catch (error) {
-    console.error('[Simple Test] Error:', error);
-    
-    return res.status(500).json({ 
-      status: 'error',
-      message: 'Simple API endpoint failed',
-      error: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    });
+    console.error('[Test] Simple API route failed:', error);
+    return NextResponse.json(
+      { 
+        error: 'Simple API route failed', 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
   }
 }
