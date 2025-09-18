@@ -59,14 +59,38 @@ export async function generateGoogleAuthUrl(state?: string): Promise<string> {
     });
     
     // Use API route instead of direct AWS calls
+    console.log('[Google OAuth] Calling API endpoint: /api/auth/google');
     const response = await fetch('/api/auth/google');
     
+    console.log('[Google OAuth] API response status:', response.status);
+    console.log('[Google OAuth] API response headers:', Object.fromEntries(response.headers.entries()));
+    
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.details || 'Failed to get OAuth URL from API');
+      console.error('[Google OAuth] API response not OK:', response.status, response.statusText);
+      const responseText = await response.text();
+      console.error('[Google OAuth] API response body:', responseText);
+      
+      try {
+        const errorData = JSON.parse(responseText);
+        throw new Error(errorData.details || 'Failed to get OAuth URL from API');
+      } catch (parseError) {
+        throw new Error(`API returned non-JSON response: ${responseText.substring(0, 200)}`);
+      }
     }
     
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log('[Google OAuth] API response body:', responseText);
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('[Google OAuth] Failed to parse JSON response:', parseError);
+      console.error('[Google OAuth] Response text:', responseText);
+      throw new Error(`Invalid JSON response from API: ${responseText.substring(0, 200)}`);
+    }
+    
+    console.log('[Google OAuth] Parsed response data:', data);
     console.log('[Google OAuth] Received auth URL from API:', data.authUrl);
     
     return data.authUrl;

@@ -1,7 +1,15 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { getCachedGoogleOAuthConfig } from '../../src/lib/aws-secrets';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -14,6 +22,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       HAS_ACCESS_KEY: !!process.env.AWS_ACCESS_KEY_ID,
       HAS_SECRET_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
     });
+
+    // Try to import AWS libraries
+    let getCachedGoogleOAuthConfig;
+    try {
+      const awsSecrets = await import('../../src/lib/aws-secrets');
+      getCachedGoogleOAuthConfig = awsSecrets.getCachedGoogleOAuthConfig;
+      console.log('[API] Successfully imported AWS secrets module');
+    } catch (importError) {
+      console.error('[API] Failed to import AWS secrets module:', importError);
+      return res.status(500).json({ 
+        error: 'Failed to import AWS modules',
+        details: importError instanceof Error ? importError.message : 'Unknown import error'
+      });
+    }
 
     const config = await getCachedGoogleOAuthConfig();
     console.log('[API] OAuth config retrieved:', {
@@ -44,9 +66,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({ authUrl });
   } catch (error) {
     console.error('[API] Google OAuth error:', error);
+    console.error('[API] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return res.status(500).json({ 
       error: 'Failed to generate OAuth URL',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     });
   }
 }
