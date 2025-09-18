@@ -148,78 +148,62 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
   
-  const handleOAuthCallback = useCallback(async (code: string, state?: string) => {
-    try {
-      setLoading(true);
-      
-      // Exchange code for tokens
-      const tokens = await exchangeCodeForTokens(code);
-      
-      // Get user info
-      const userInfo = await getGoogleUserInfo(tokens.access_token);
-      
-      // Store session with encrypted tokens
-      const storedSession = await storeUserSession(userInfo, tokens);
-      
-      // Update context state
-      setUser(userInfo);
-      setSession({
-        user: userInfo,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_at: storedSession.expiresAt,
-      });
-      
-      // Connect to Recall.ai calendar integration
-      try {
-        const recallCalendar = await connectToRecallCalendar(userInfo.id, {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token || '',
-          expires_at: storedSession.expiresAt,
-        });
-        
-        // Update user object with Recall.ai calendar information
-        const updatedUser = {
-          ...userInfo,
-          recallCalendarId: recallCalendar.id,
-          recallCalendarStatus: recallCalendar.status,
-        };
-        
-        // Update context state with Recall.ai calendar info
-        setUser(updatedUser);
-        setSession({
-          user: updatedUser,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: storedSession.expiresAt,
-        });
-        
-        toast.success("Successfully connected to Recall.ai! Bots will automatically join your meetings.");
-      } catch (recallError) {
-        console.error('[AuthContext] Failed to connect to Recall.ai:', recallError);
-        // Don't fail the OAuth flow if Recall.ai connection fails
-        toast.warning("Google Calendar connected, but Recall.ai integration is not available. You can try connecting later in Settings.");
-      }
-      
-      toast.success("Successfully signed in with Google!");
-    } catch (error) {
-      console.error('[AuthContext] OAuth callback failed:', error);
-      toast.error("Failed to complete Google sign-in");
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+          const handleOAuthCallback = useCallback(async (code: string, state?: string) => {
+            try {
+              setLoading(true);
+              
+              // Exchange code for tokens
+              const tokens = await exchangeCodeForTokens(code);
+              
+              // Get user info
+              const userInfo = await getGoogleUserInfo(tokens.access_token);
+              
+              // Store session with encrypted tokens
+              const storedSession = await storeUserSession(userInfo, tokens);
+              
+              // Update context state
+              setUser(userInfo);
+              setSession({
+                user: userInfo,
+                access_token: tokens.access_token,
+                refresh_token: tokens.refresh_token,
+                expires_at: storedSession.expiresAt,
+              });
+              
+              // Invoke Lambda function for Recall.ai integration
+              try {
+                await invokeRecallLambda(userInfo.id, {
+                  access_token: tokens.access_token,
+                  refresh_token: tokens.refresh_token || '',
+                  expires_at: storedSession.expiresAt,
+                });
+                
+                toast.success("Successfully connected to Recall.ai! Bots will automatically join your meetings.");
+              } catch (lambdaError) {
+                console.error('[AuthContext] Failed to invoke Recall.ai Lambda:', lambdaError);
+                // Don't fail the OAuth flow if Lambda invocation fails
+                toast.warning("Google Calendar connected, but Recall.ai integration is not available. You can try connecting later in Settings.");
+              }
+              
+              toast.success("Successfully signed in with Google!");
+            } catch (error) {
+              console.error('[AuthContext] OAuth callback failed:', error);
+              toast.error("Failed to complete Google sign-in");
+              throw error;
+            } finally {
+              setLoading(false);
+            }
+          }, []);
 
-  const connectToRecallCalendar = async (userId: string, googleTokens: {
+  const invokeRecallLambda = async (userId: string, googleTokens: {
     access_token: string;
     refresh_token: string;
     expires_at: number;
   }) => {
     try {
-      console.log('[Recall.ai Debug] Starting Recall.ai calendar connection...');
-      console.log('[Recall.ai Debug] User ID:', userId);
-      console.log('[Recall.ai Debug] Google tokens received:', {
+      console.log('[Lambda Debug] Invoking Recall.ai Lambda function...');
+      console.log('[Lambda Debug] User ID:', userId);
+      console.log('[Lambda Debug] Google tokens received:', {
         hasAccessToken: !!googleTokens.access_token,
         hasRefreshToken: !!googleTokens.refresh_token,
         expiresAt: googleTokens.expires_at,
@@ -227,46 +211,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         refreshTokenPrefix: googleTokens.refresh_token?.substring(0, 10) + '...'
       });
       
-      // Import the Recall.ai calendar integration
-      console.log('[Recall.ai Debug] Importing recall-calendar module...');
-      const { createRecallCalendar } = await import('@/lib/recall-calendar');
-      console.log('[Recall.ai Debug] Successfully imported createRecallCalendar function');
-      
-       console.log('[Recall.ai Debug] Creating Recall.ai calendar with AWS Secrets Manager credentials...');
-       
-       // Create Recall.ai calendar using credentials from AWS Secrets Manager
-       const calendar = await createRecallCalendar(googleTokens);
-      
-      console.log('[Recall.ai Debug] Recall.ai calendar created successfully:', {
-        calendarId: calendar.id,
-        status: calendar.status,
-        platform: calendar.platform,
-        platformEmail: calendar.platform_email,
-        createdAt: calendar.created_at
+      // Invoke Lambda function
+      const response = await fetch('/api/lambda/recall-integration', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId,
+          googleTokens: googleTokens
+        }),
       });
-      
-      // Store the calendar ID in the user session for future reference
-      console.log('[Recall.ai Debug] Storing calendar info in user session...');
-      const currentSession = await getUserSession();
-      if (currentSession) {
-        currentSession.recallCalendarId = calendar.id;
-        currentSession.recallCalendarStatus = calendar.status;
-        // Update the stored session with Recall.ai calendar info
-        localStorage.setItem('user_session', JSON.stringify(currentSession));
-        console.log('[Recall.ai Debug] Session updated with Recall.ai calendar info');
-      } else {
-        console.warn('[Recall.ai Debug] No current session found to update');
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Lambda invocation failed: ${errorData.error || response.statusText}`);
       }
+
+      const result = await response.json();
+      console.log('[Lambda Debug] Lambda function executed successfully:', result);
       
-      return calendar;
+      return result;
     } catch (error) {
-      console.error('[Recall.ai Debug] Failed to connect to Recall.ai calendar:', error);
-      console.error('[Recall.ai Debug] Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace',
-        cause: error instanceof Error ? error.cause : undefined
-      });
+      console.error('[Lambda Debug] Failed to invoke Recall.ai Lambda:', error);
       throw error;
     }
   };
