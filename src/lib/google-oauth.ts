@@ -50,7 +50,20 @@ export interface StoredUserSession {
  */
 export async function generateGoogleAuthUrl(state?: string): Promise<string> {
   try {
+    console.log('[Google OAuth] Generating auth URL...');
+    console.log('[Google OAuth] Environment check:', {
+      NODE_ENV: process.env.NODE_ENV,
+      AWS_REGION: process.env.AWS_REGION,
+      HAS_ACCESS_KEY: !!process.env.AWS_ACCESS_KEY_ID,
+      HAS_SECRET_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
+    });
+    
     const config = await getCachedGoogleOAuthConfig();
+    console.log('[Google OAuth] Config retrieved:', {
+      hasClientId: !!config.client_id,
+      hasClientSecret: !!config.client_secret,
+      redirectUri: config.redirect_uri,
+    });
     
     const params = new URLSearchParams({
       client_id: config.client_id,
@@ -62,9 +75,15 @@ export async function generateGoogleAuthUrl(state?: string): Promise<string> {
       ...(state && { state }),
     });
 
-    return `${GOOGLE_OAUTH_ENDPOINTS.authorization}?${params.toString()}`;
+    const authUrl = `${GOOGLE_OAUTH_ENDPOINTS.authorization}?${params.toString()}`;
+    console.log('[Google OAuth] Generated auth URL:', authUrl);
+    return authUrl;
   } catch (error) {
-    console.error('Failed to generate Google auth URL:', error);
+    console.error('[Google OAuth] Failed to generate auth URL:', error);
+    console.error('[Google OAuth] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     throw new Error('Failed to generate Google OAuth URL');
   }
 }
