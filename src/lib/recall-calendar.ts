@@ -3,8 +3,10 @@
  * Based on recall-ai-setup.md documentation
  */
 
-const RECALL_BASE = "https://us-west-2.recall.ai";
+const RECALL_BASE = "https://us-east-1.recall.ai";
 const RECALL_API_KEY = "8c0933578c0fbc870e520b43432b392aba8c3da9";
+const GOOGLE_CLIENT_ID = process.env.RECALL_GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.RECALL_GOOGLE_CLIENT_SECRET;
 
 export interface RecallCalendar {
   id: string;
@@ -39,54 +41,28 @@ export interface RecallBot {
 }
 
 /**
- * Create a Recall.ai calendar for a user after Google OAuth
+ * Get a Recall.ai calendar auth token for a user
+ * This is the first step in the Recall.ai integration
  */
-export async function createRecallCalendar(
-  googleTokens: {
-    access_token: string;
-    refresh_token: string;
-    expires_at: number;
-  },
-  googleClientId: string,
-  googleClientSecret: string
-): Promise<RecallCalendar> {
-  console.log('[Recall.ai Debug] ===== STARTING RECALL.AI CALENDAR CREATION =====');
+export async function getRecallCalendarAuthToken(userId: string): Promise<string> {
+  console.log('[Recall.ai Debug] ===== GETTING RECALL.AI CALENDAR AUTH TOKEN =====');
+  console.log('[Recall.ai Debug] User ID:', userId);
   console.log('[Recall.ai Debug] Recall.ai API Base URL:', RECALL_BASE);
   console.log('[Recall.ai Debug] Recall.ai API Key (masked):', RECALL_API_KEY.substring(0, 8) + '...');
-  console.log('[Recall.ai Debug] Google Client ID (masked):', googleClientId.substring(0, 10) + '...');
-  console.log('[Recall.ai Debug] Google Client Secret (masked):', googleClientSecret.substring(0, 10) + '...');
-  console.log('[Recall.ai Debug] Google tokens:', {
-    accessTokenPrefix: googleTokens.access_token?.substring(0, 10) + '...',
-    refreshTokenPrefix: googleTokens.refresh_token?.substring(0, 10) + '...',
-    expiresAt: googleTokens.expires_at,
-    expiresAtDate: new Date(googleTokens.expires_at).toISOString()
-  });
   
   try {
-    const requestBody = {
-      oauth_client_id: googleClientId,
-      oauth_client_secret: googleClientSecret,
-      oauth_refresh_token: googleTokens.refresh_token,
-      platform: 'google_calendar',
-    };
+    console.log('[Recall.ai Debug] Making request to get calendar auth token...');
+    console.log('[Recall.ai Debug] Full URL:', `${RECALL_BASE}/api/v1/calendar/auth-token`);
     
-    console.log('[Recall.ai Debug] Request body (sensitive data masked):', {
-      oauth_client_id: googleClientId.substring(0, 10) + '...',
-      oauth_client_secret: googleClientSecret.substring(0, 10) + '...',
-      oauth_refresh_token: googleTokens.refresh_token.substring(0, 10) + '...',
-      platform: 'google_calendar'
-    });
-    
-    console.log('[Recall.ai Debug] Making request to Recall.ai API...');
-    console.log('[Recall.ai Debug] Full URL:', `${RECALL_BASE}/api/v2/calendars/`);
-    
-    const response = await fetch(`${RECALL_BASE}/api/v2/calendars/`, {
+    const response = await fetch(`${RECALL_BASE}/api/v1/calendar/auth-token`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RECALL_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        user_id: userId,
+      }),
     });
 
     console.log('[Recall.ai Debug] Response received:', {
@@ -105,41 +81,73 @@ export async function createRecallCalendar(
         errorData = JSON.parse(responseText);
       } catch (parseError) {
         console.error('[Recall.ai Debug] Failed to parse error response:', parseError);
-        throw new Error(`Recall.ai calendar creation failed: ${response.status} - ${response.statusText} - Unable to parse error response`);
+        throw new Error(`Recall.ai auth token request failed: ${response.status} - ${response.statusText} - Unable to parse error response`);
       }
       
       console.error('[Recall.ai Debug] Parsed error data:', errorData);
-      throw new Error(`Recall.ai calendar creation failed: ${errorData.detail || errorData.error || response.statusText}`);
+      throw new Error(`Recall.ai auth token request failed: ${errorData.detail || errorData.error || response.statusText}`);
     }
 
     console.log('[Recall.ai Debug] Request successful, parsing response...');
-    const calendar = await response.json();
-    console.log('[Recall.ai Debug] Calendar created successfully:', {
-      id: calendar.id,
-      status: calendar.status,
-      platform: calendar.platform,
-      platform_email: calendar.platform_email,
-      created_at: calendar.created_at,
-      updated_at: calendar.updated_at
+    const data = await response.json();
+    console.log('[Recall.ai Debug] Auth token received:', {
+      hasToken: !!data.auth_token,
+      tokenPrefix: data.auth_token?.substring(0, 10) + '...'
     });
     
-    console.log('[Recall.ai Debug] ===== RECALL.AI CALENDAR CREATION COMPLETED =====');
-    return calendar;
+    console.log('[Recall.ai Debug] ===== RECALL.AI AUTH TOKEN RECEIVED =====');
+    return data.auth_token;
   } catch (error) {
-    console.error('[Recall.ai Debug] ===== RECALL.AI CALENDAR CREATION FAILED =====');
+    console.error('[Recall.ai Debug] ===== RECALL.AI AUTH TOKEN REQUEST FAILED =====');
     console.error('[Recall.ai Debug] Error type:', typeof error);
     console.error('[Recall.ai Debug] Error name:', error instanceof Error ? error.name : 'Unknown');
     console.error('[Recall.ai Debug] Error message:', error instanceof Error ? error.message : 'Unknown error');
     console.error('[Recall.ai Debug] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    console.error('[Recall.ai Debug] Error cause:', error instanceof Error ? error.cause : undefined);
-    
-    // Check if it's a network error
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.error('[Recall.ai Debug] Network error detected - possible CORS or connectivity issue');
-    }
     
     throw error;
   }
+}
+
+/**
+ * Generate the Recall.ai OAuth URL for Google Calendar integration
+ * This redirects the user to Google OAuth with Recall.ai's callback
+ */
+export function generateRecallOAuthUrl(
+  recallAuthToken: string,
+  successUrl?: string,
+  errorUrl?: string
+): string {
+  console.log('[Recall.ai Debug] ===== GENERATING RECALL.AI OAUTH URL =====');
+  console.log('[Recall.ai Debug] Recall auth token (masked):', recallAuthToken.substring(0, 10) + '...');
+  
+  if (!GOOGLE_CLIENT_ID) {
+    throw new Error('RECALL_GOOGLE_CLIENT_ID environment variable is not set');
+  }
+  
+  const redirectUri = `${RECALL_BASE}/api/v1/calendar/google_oauth_callback/`;
+  const scopes = 'https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/userinfo.email';
+  
+  const state = JSON.stringify({
+    recall_calendar_auth_token: recallAuthToken,
+    google_oauth_redirect_url: redirectUri,
+    success_url: successUrl || `${window.location.origin}/app/settings`,
+    error_url: errorUrl || `${window.location.origin}/app/settings`,
+  });
+  
+  const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  oauthUrl.searchParams.set('scope', scopes);
+  oauthUrl.searchParams.set('access_type', 'offline');
+  oauthUrl.searchParams.set('prompt', 'consent');
+  oauthUrl.searchParams.set('include_granted_scopes', 'true');
+  oauthUrl.searchParams.set('response_type', 'code');
+  oauthUrl.searchParams.set('state', state);
+  oauthUrl.searchParams.set('redirect_uri', redirectUri);
+  oauthUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID);
+  
+  console.log('[Recall.ai Debug] Generated OAuth URL:', oauthUrl.toString());
+  console.log('[Recall.ai Debug] ===== RECALL.AI OAUTH URL GENERATED =====');
+  
+  return oauthUrl.toString();
 }
 
 /**
