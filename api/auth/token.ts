@@ -78,6 +78,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log('[API] OAuth config validated, exchanging code for tokens');
+    console.log('[API] Request details:', {
+      client_id: config.client_id,
+      redirect_uri: config.redirect_uri,
+      code_length: code.length,
+      code_prefix: code.substring(0, 10) + '...',
+    });
 
     // Exchange code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -94,9 +100,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }),
     });
 
+    console.log('[API] Token response status:', tokenResponse.status);
+    console.log('[API] Token response headers:', Object.fromEntries(tokenResponse.headers.entries()));
+
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json();
       console.error('[API] Token exchange failed:', errorData);
+      console.error('[API] Full error response:', JSON.stringify(errorData, null, 2));
       throw new Error(`Token exchange failed: ${errorData.error_description || errorData.error}`);
     }
 
