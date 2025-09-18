@@ -232,36 +232,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { createRecallCalendar } = await import('@/lib/recall-calendar');
       console.log('[Recall.ai Debug] Successfully imported createRecallCalendar function');
       
-      // Get Google OAuth credentials from environment
-      console.log('[Recall.ai Debug] Checking environment variables...');
-      const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-      const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-      
-      console.log('[Recall.ai Debug] Environment variables:', {
-        hasGoogleClientId: !!googleClientId,
-        hasGoogleClientSecret: !!googleClientSecret,
-        googleClientIdPrefix: googleClientId?.substring(0, 10) + '...',
-        googleClientSecretPrefix: googleClientSecret?.substring(0, 10) + '...',
-        allEnvVars: Object.keys(process.env).filter(key => key.includes('GOOGLE') || key.includes('RECALL'))
-      });
-      
-      if (!googleClientId || !googleClientSecret) {
-        console.error('[Recall.ai Debug] Missing Google OAuth credentials:', {
-          missingClientId: !googleClientId,
-          missingClientSecret: !googleClientSecret,
-          availableEnvVars: Object.keys(process.env).filter(key => key.includes('GOOGLE'))
-        });
-        throw new Error('Google OAuth credentials not configured');
-      }
-      
-      console.log('[Recall.ai Debug] All credentials found, creating Recall.ai calendar...');
-      
-      // Create Recall.ai calendar
-      const calendar = await createRecallCalendar(
-        googleTokens,
-        googleClientId,
-        googleClientSecret
-      );
+       console.log('[Recall.ai Debug] Creating Recall.ai calendar with AWS Secrets Manager credentials...');
+       
+       // Create Recall.ai calendar using credentials from AWS Secrets Manager
+       const calendar = await createRecallCalendar(googleTokens);
       
       console.log('[Recall.ai Debug] Recall.ai calendar created successfully:', {
         calendarId: calendar.id,
