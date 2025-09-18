@@ -19,13 +19,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     return res.json({
       status: 'success',
-      message: 'Simple API endpoint is working',
+      message: 'Simple API endpoint is working - updated',
       timestamp: new Date().toISOString(),
       environment: {
         NODE_ENV: process.env.NODE_ENV,
         HAS_RECALL_API_KEY: !!process.env.RECALL_API_KEY,
         HAS_AWS_REGION: !!process.env.AWS_REGION,
-      }
+      },
+      newFiles: 'Testing if new API routes are deployed'
     });
     
   } catch (error) {
