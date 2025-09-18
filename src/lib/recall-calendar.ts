@@ -206,7 +206,7 @@ export async function generateRecallOAuthUrl(
 
 /**
  * Create a Recall.ai calendar for a user after Google OAuth
- * This follows the official Recall.ai documentation pattern
+ * This calls our server-side API route which handles AWS Secrets Manager access
  */
 export async function createRecallCalendar(
   googleTokens: {
@@ -216,8 +216,6 @@ export async function createRecallCalendar(
   }
 ): Promise<RecallCalendar> {
   console.log('[Recall.ai Debug] ===== STARTING RECALL.AI CALENDAR CREATION =====');
-  console.log('[Recall.ai Debug] Recall.ai API Base URL:', RECALL_BASE);
-  console.log('[Recall.ai Debug] Recall.ai API Key (masked):', RECALL_API_KEY.substring(0, 8) + '...');
   console.log('[Recall.ai Debug] Google tokens:', {
     accessTokenPrefix: googleTokens.access_token?.substring(0, 10) + '...',
     refreshTokenPrefix: googleTokens.refresh_token?.substring(0, 10) + '...',
@@ -226,33 +224,17 @@ export async function createRecallCalendar(
   });
   
   try {
-    // Get Google OAuth credentials from AWS Secrets Manager
-    const credentials = await getGoogleOAuthCredentials();
+    console.log('[Recall.ai Debug] Calling server-side API route...');
+    console.log('[Recall.ai Debug] Full URL:', '/api/recall/create-calendar');
     
-    const requestBody = {
-      oauth_client_id: credentials.client_id,
-      oauth_client_secret: credentials.client_secret,
-      oauth_refresh_token: googleTokens.refresh_token,
-      platform: 'google_calendar',
-    };
-    
-    console.log('[Recall.ai Debug] Request body (sensitive data masked):', {
-      oauth_client_id: credentials.client_id.substring(0, 10) + '...',
-      oauth_client_secret: credentials.client_secret.substring(0, 10) + '...',
-      oauth_refresh_token: googleTokens.refresh_token.substring(0, 10) + '...',
-      platform: 'google_calendar'
-    });
-    
-    console.log('[Recall.ai Debug] Making request to Recall.ai API...');
-    console.log('[Recall.ai Debug] Full URL:', `${RECALL_BASE}/api/v2/calendars/`);
-    
-    const response = await fetch(`${RECALL_BASE}/api/v2/calendars/`, {
+    const response = await fetch('/api/recall/create-calendar', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${RECALL_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        googleTokens: googleTokens
+      }),
     });
 
     console.log('[Recall.ai Debug] Response received:', {
@@ -275,7 +257,7 @@ export async function createRecallCalendar(
       }
       
       console.error('[Recall.ai Debug] Parsed error data:', errorData);
-      throw new Error(`Recall.ai calendar creation failed: ${errorData.detail || errorData.error || response.statusText}`);
+      throw new Error(`Recall.ai calendar creation failed: ${errorData.error || errorData.details || response.statusText}`);
     }
 
     console.log('[Recall.ai Debug] Request successful, parsing response...');
