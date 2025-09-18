@@ -15,6 +15,13 @@ interface CreateCalendarRequest {
 export async function POST(request: NextRequest) {
   try {
     console.log('[Recall.ai API] ===== CREATE CALENDAR REQUEST =====');
+    console.log('[Recall.ai API] Environment check:', {
+      hasAwsRegion: !!process.env.AWS_REGION,
+      hasAwsAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+      hasAwsSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV
+    });
     
     const body: CreateCalendarRequest = await request.json();
     console.log('[Recall.ai API] Request body received:', {
@@ -34,16 +41,32 @@ export async function POST(request: NextRequest) {
 
     // Get Google OAuth credentials from AWS Secrets Manager
     console.log('[Recall.ai API] Getting Google OAuth credentials from AWS Secrets Manager...');
-    const client = new SecretsManagerClient({
-      region: process.env.AWS_REGION || 'us-east-1',
-    });
+    console.log('[Recall.ai API] Secret name:', RECALL_GOOGLE_OAUTH_SECRET_NAME);
+    console.log('[Recall.ai API] AWS region:', process.env.AWS_REGION || 'us-east-1');
+    
+    let client;
+    try {
+      client = new SecretsManagerClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+      });
+      console.log('[Recall.ai API] AWS client created successfully');
+    } catch (clientError) {
+      console.error('[Recall.ai API] Failed to create AWS client:', clientError);
+      throw new Error(`Failed to create AWS client: ${clientError instanceof Error ? clientError.message : 'Unknown error'}`);
+    }
 
     const command = new GetSecretValueCommand({
       SecretId: RECALL_GOOGLE_OAUTH_SECRET_NAME,
     });
 
-    const response = await client.send(command);
-    console.log('[Recall.ai API] Secret retrieved from AWS');
+    let response;
+    try {
+      response = await client.send(command);
+      console.log('[Recall.ai API] Secret retrieved from AWS');
+    } catch (secretError) {
+      console.error('[Recall.ai API] Failed to retrieve secret from AWS:', secretError);
+      throw new Error(`Failed to retrieve secret from AWS: ${secretError instanceof Error ? secretError.message : 'Unknown error'}`);
+    }
 
     if (!response.SecretString) {
       throw new Error('No secret string found in AWS Secrets Manager');
@@ -81,15 +104,27 @@ export async function POST(request: NextRequest) {
 
     console.log('[Recall.ai API] Making request to Recall.ai API...');
     console.log('[Recall.ai API] Full URL:', `${RECALL_BASE}/api/v2/calendars/`);
-
-    const recallResponse = await fetch(`${RECALL_BASE}/api/v2/calendars/`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token ${credentials.recall_api_key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
+    console.log('[Recall.ai API] Request body (sensitive data masked):', {
+      oauth_client_id: credentials.client_id.substring(0, 10) + '...',
+      oauth_client_secret: credentials.client_secret.substring(0, 10) + '...',
+      oauth_refresh_token: body.googleTokens.refresh_token.substring(0, 10) + '...',
+      platform: 'google_calendar'
     });
+
+    let recallResponse;
+    try {
+      recallResponse = await fetch(`${RECALL_BASE}/api/v2/calendars/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${credentials.recall_api_key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (fetchError) {
+      console.error('[Recall.ai API] Failed to make request to Recall.ai:', fetchError);
+      throw new Error(`Failed to make request to Recall.ai: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
+    }
 
     console.log('[Recall.ai API] Response received:', {
       status: recallResponse.status,
