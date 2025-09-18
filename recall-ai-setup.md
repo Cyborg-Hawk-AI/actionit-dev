@@ -1,303 +1,262 @@
-Here’s a detailed *developer guide* (assuming a Vite-based frontend + backend setup) for integrating Recall.ai’s Google Calendar / Calendar V1 or V2 functionality so that bots can automatically join meetings on users’ Google Calendars. Since you already have read/write permissions on the user’s Google Calendar, I’ll highlight where that matters, but most of this is about Recall.ai API surface, flows, endpoints, and what your app needs to do.
+Below is a developer-guide/technical plan for integrating Recall.ai (in **us-west-2** region) with Google SSO + Google Calendar V2, so that once a user signs up and connects their Google Calendar, your system keeps meetings synced and automatically schedules bots to join meetings.
 
 ---
 
-## Overview
+## Assumptions & Setup
 
-You want your app to:
-
-* Allow users to sign up via SSO (so you know the user identity).
-* Let users connect their Google Calendar (via OAuth) so your app + Recall.ai can see their events.
-* Based on their calendar events, schedule bots (via Recall.ai) to join meetings automatically.
-* Handle updates: new events, cancelled events, preference changes.
-* Possibly support either Calendar V1 or V2 (depending on how much control/customization you need).
+* Your Recall.ai region is **US West 2** so all Recall.ai API endpoints should use base URL:
+  `https://us-west-2.recall.ai` ([Recall.ai][1])
+* You have a Recall.ai API key (you provided: `8c0933578c0fbc870e520b43432b392aba8c3da9`). This key must be treated as secret and only used in your backend.
+* You want Calendar V2 integration (because more control, webhooks, etc.).
+* You have or will set up Google OAuth client credentials with required scopes.
 
 ---
 
-## Key Concepts
+## Key Features / Requirements
 
-* **Calendar Integration**: A layer in Recall.ai that watches a user’s calendar and automatically schedules bots for the user’s meetings (if they meet certain criteria).
-
-  * V1: simpler, more opinionated, less flexible configuration.
-  * V2: more modular, more control, webhooks, more fine-grained user-level bot configuration. ([Recall.ai][1])
-
-* **Calendar Auth Token**: Recall’s token that represents the user’s connection state. Used in headers to fetch events, etc. It has \~1 day expiry and is stateless. ([Recall.ai][2])
-
-* **OAuth with Google**: You need to set up Google OAuth client credentials, request correct scopes. Especially for Google Calendar integration, you need `calendar.events.readonly` (or more if you want read/write) and `userinfo.email`. ([Recall.ai][3])
-
-* **Webhooks (in V2)**: To get push-style updates when calendar events change, or when calendar is disconnected, etc. Helps you maintain sync without polling. ([Recall.ai][4])
-
-* **Bot scheduling**: Recall.ai bots (either scheduled via calendar integration or via explicit bot API) will join meetings at a certain time (e.g. 2 minutes before event start for V1) unless you customize. ([Recall.ai][2])
+1. Users sign up (via SSO) → identity tied in your system.
+2. Users connect their Google account (OAuth) so your app obtains `refresh_token` + appropriate access scopes.
+3. Create a Recall.ai calendar resource representing the user’s Google Calendar.
+4. Fetch calendar events (new, updated, deleted) via Recall.ai.
+5. Listen to webhooks from Recall.ai about calendar updates so you know when to sync.
+6. Schedule bots to join meetings according to your business logic (e.g. for all meetings, or only some meetings).
+7. Handle cancellations / modifications of meetings (remove bot, update schedule).
 
 ---
 
-## What to Decide Before Implementation
-
-1. **Choose between Calendar V1 vs V2**
-
-   * If you need more control, event filtering logic, custom bot settings, event webhooks → go for V2.
-   * If you’re okay with more out-of-the-box behavior, fewer customization points → V1 may be faster. ([Recall.ai][1])
-
-2. **What level of calendar access you need**
-
-   * If you only want to *read* events & schedule bots, `calendar.events.readonly` is likely enough.
-   * If you want to create or modify calendar events (e.g. inserting meetings, updating metadata), you’ll need write permissions. Note that some of Recall’s flows assume read access. Check that your app can support the write scopes if required.
-
-3. **User preferences & filtering logic**
-
-   * Decide criteria for which meetings get bots: all meetings, only certain calendar(s), only meetings with specific metadata, etc.
-   * Provide UI for user preferences (e.g. “record only meetings with more than N attendees”, or “skip meetings marked private”, etc.).
-
-4. **Token lifecycle & refresh flow**
-
-   * For Google OAuth, refresh tokens are needed; you’ll need to handle revoked/expired tokens.
-   * In V2, if your client is in testing mode, tokens expire after 7 days unless published. In production, they persist unless revoked. ([Recall.ai][5])
-
-5. **Security**
-
-   * Don’t expose Recall API Key in frontend; use your backend/proxy for any calls that need it.
-   * Secure your OAuth redirect URIs; verify domain ownership if publishing to production. ([Recall.ai][5])
-
----
-
-## Step-By-Step Implementation Guide
-
-Here’s a suggested flow and what endpoints & logic to build, using V2 (you can adapt for V1 if you choose that).
-
----
-
-### Backend + Frontend Setup
-
-* Frontend (Vite): UI for users to connect their calendar, display upcoming meetings, preferences settings.
-
-* Backend:
-
-  * Proxy endpoints for sensitive operations (token generation, fetching/syncing events, handling webhooks, scheduling/removing bots).
-  * Store users' mapping: your user IDs ↔ Recall’s calendar user / calendar IDs.
-  * Store user preferences for which meetings to schedule, etc.
-
----
-
-### Google OAuth Setup
+## Required OAuth Scopes & Google Setup
 
 * In Google Cloud Console:
 
-  1. Create a Google OAuth 2.0 client (client\_id + client\_secret). ([Recall.ai][3])
-  2. Enable Google Calendar API in that project. ([Recall.ai][3])
-  3. Set up Consent Screen with at least scopes: `calendar.events.readonly` & `userinfo.email`. If you need write access, include those corresponding scopes. ([Recall.ai][3])
-  4. Add redirect URIs; one needed is the Recall callback URL for Google Calendar: `https://us-east-1.recall.ai/api/v1/calendar/google_oauth_callback/` (for V1) or whatever the equivalent in V2. ([Recall.ai][3])
+  * Create OAuth 2.0 Client (Client ID + Client Secret).
+  * Enable the Google Calendar API.
+  * In consent screen, include the scopes:
 
-* In your app backend:
+    * `https://www.googleapis.com/auth/calendar.events.readonly` (or if you want write: `calendar.events`)
+    * Possibly `openid`, `userinfo.email` to identify user.
 
-  * Endpoint to begin the OAuth flow (redirect user to Google’s consent screen), passing necessary `state` that includes at least: your `recall_calendar_auth_token`, `redirect_uri`, optional success/error URLs. ([Recall.ai][3])
-  * Endpoint to receive OAuth callback. On callback, exchange `code` for tokens, store refresh\_token etc. Possibly via Recall.ai if using their built-in endpoints.
+* Redirect URI(s): your backend endpoint(s) to receive OAuth callbacks from Google.
 
----
-
-### Recall.ai Integration: V2 Flow (Recommended)
-
-1. **Create a Calendar record** (`Create Calendar`)
-
-   * POST to `https://us-east-1.recall.ai/api/v2/calendars/` to register that calendar for a user after OAuth is complete. ([Recall.ai][6])
-   * This returns a calendar\_id, etc., which you'll persist (e.g. tied to your user).
-
-2. **List Calendars**
-
-   * GET `https://us-east-1.recall.ai/api/v2/calendars/` to retrieve all connected calendars for workspace / user. Useful to show in UI. ([Recall.ai][7])
-
-3. **List Events (Calendar Events)**
-
-   * GET `https://us-east-1.recall.ai/api/v2/calendar-events/` to fetch upcoming events. Use appropriate query params for filtering (e.g. by calendar\_id, “updated\_at\_\_gte” for incremental sync) etc. ([Recall.ai][8])
-
-4. **Webhooks**
-
-   * Configure Svix (Recall.ai uses Svix for webhook delivery) to receive events:
-
-     * `calendar.update` – when calendar is disconnected or its status changes. ([Recall.ai][4])
-     * `calendar.sync_events` – when calendar events change, so you can re-fetch events. Payload includes `calendar_id` and `last_updated_ts`. ([Recall.ai][4])
-
-   * Your backend should have an endpoint to receive these and act: e.g. re-sync events, remove scheduled bots for cancelled events, schedule bots for new events, etc.
-
-5. **Bot Scheduling / Create Bot**
-
-   * Either rely on Recall‘s calendar integration scheduling (if V2, you may get configuration to schedule bots) or use the Create Bot endpoint explicitly.
-   * Bots should join meetings at the appropriate time (V1 defaults to 2 minutes before event start; V2 gives more control) unless your app overrides. ([Recall.ai][2])
-
-6. **User Preferences / Recording Options**
-
-   * Build UI & store preferences (which events to record, bot configuration, etc.).
-   * Use Recall API to update recording preferences or bot configurations. In V1 there are endpoints / flows for “update recording preferences”. ([Recall.ai][2])
+* Ensure consent screen approved / trusted if deploying to many users.
 
 ---
 
-### Recall.ai Integration: V1 Flow (if you choose V1)
+## Step-by-Step Integration Flow (Calendar V2)
 
-* V1 is simpler. The pattern is similar, but fewer endpoints and less flexibility. Key endpoints include:
+Here is how to build the integration, end-to-end. Use this as a blueprint for your code structure.
 
-  1. **Get Calendar Auth Token**: to generate `recallcalendarauthtoken` for user. ([Recall.ai][2])
-  2. **Initiate calendar connection** via OAuth with Google (similar to above for V1), redirect user. ([Recall.ai][2])
-  3. **List Calendar Meetings / Events**: Using the auth token header (`x-recallcalendarauthtoken`) to fetch user events. ([Recall.ai][2])
-  4. **Update recording preferences**: UI + API to change which kinds of calendar events should have bots. ([Recall.ai][2])
-  5. **Bot configuration**: mostly from preset configuration. You reach out to Recall.ai if you want to tweak bot configuration for Calendar V1 bots. ([Recall.ai][2])
-
-* V1 also has limitations:
-
-  * Less control over individual bot settings.
-  * Bots join 2 minutes before start time. ([Recall.ai][2])
-  * No webhooks in V1 (so you’ll need more polling).
-  * If the user changes preferences, scheduled bots for future events are removed automatically for events no longer matching preferences. ([Recall.ai][9])
-
----
-
-## What Your App Should Implement
-
-Here’s a checklist of pieces your app will need to build:
-
-| Component                                  | Purpose                                                                                                                                    | Implementation Notes                                                           |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| **User identity / SSO**                    | So you know the user and can map them to the calendar user / Recall calendar user.                                                         | After SSO signup, ensure you have a stable `user_id`, email, etc.              |
-| **Backend endpoints**                      | To proxy sensitive operations (OAuth token exchanges, Recall API key usage) so that your front end never leaks secrets.                    | E.g. route for generating calendar auth token, OAuth callback, etc.            |
-| **OAuth flow UI / Frontend**               | Button / screen for user to connect their Google Calendar; show success/failure; show status.                                              | Vite frontend page, redirect to Google, etc.                                   |
-| **Persisting tokens and mapping**          | Store refresh\_tokens or whatever Recall needs, mapping of your user ↔ Recall calendar.                                                    | Secure storage; refresh token renewal; handle revoked tokens.                  |
-| **Fetching events**                        | Poll or use webhooks (for V2) to keep events up to date.                                                                                   | For V1, likely polling; for V2, implement webhook receiver.                    |
-| **Bot scheduling logic**                   | Decide for each event whether a bot should be scheduled. For V2 you might do it yourself; for V1 you rely more on Recall’s built-in logic. | Take into account event properties: attendees, organizer, private status, etc. |
-| **Handling event updates / cancellations** | When events are cancelled or changed, remove bots or adjust bot scheduling.                                                                | Use webhooks or event update endpoints.                                        |
-| **UI for upcoming meetings**               | Show the user upcoming events that will have bots, and allow override/disabling per event.                                                 | Frontend component; fetch list of events; allow toggling flags.                |
-| **User recording preferences**             | Let user set what kinds of events are recorded.                                                                                            | Persist in your DB; send updates to Recall via their endpoints.                |
-| **Error / token revocation handling**      | If Google’s refresh token is revoked, or Recall indicates calendar disconnected, handle it gracefully: notify user; ask to reconnect.      | Webhook `calendar.update` in V2 or from other signals.                         |
-| **Testing & production readiness**         | Google OAuth verification, redirect URIs, test accounts; handling rate limits; domain ownership.                                           | Ensure OAuth client is published; verify domains; monitor rate limits.         |
+| Stage                                  | What to Do                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Endpoints / APIs                                                                                                                                                                                                                                            | Key Data to Store                                                                                                                                                     |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1. Initial Setup**                   | - In Recall.ai dashboard, ensure you have created an API key (in **us-west-2**). <br> - In Recall.ai, set up OAuth provider configuration for Google Calendar: you’ll need client ID, client secret, scopes. ([Recall.ai][2])                                                                                                                                                                                                                                                            | —                                                                                                                                                                                                                                                           | Save: your Recall.ai API key; your Google OAuth client\_id & client\_secret; redirect URIs; allowed scopes.                                                           |
+| **2. User Sign Up / SSO**              | The user signs up via SSO so you have a stable user identity (email, user\_id) in your system.                                                                                                                                                                                                                                                                                                                                                                                           | —                                                                                                                                                                                                                                                           | Map: user\_id, user\_email, and any metadata you need.                                                                                                                |
+| **3. Google OAuth Authorization Flow** | - When user chooses “Connect Calendar,” redirect them to Google OAuth consent with required scopes. <br> - On callback, receive authorization `code`, exchange for tokens: at least `refresh_token`, `access_token`. <br> - Verify scopes granted, handle errors (e.g. `invalid_scope`) if user didn’t allow required permissions.                                                                                                                                                       | Google OAuth endpoints; your backend endpoints.                                                                                                                                                                                                             | Store securely: `refresh_token`, maybe `access_token` (short lived), user\_email from Google or data identifying the calendar. Also store which user this belongs to. |
+| **4. Create Calendar in Recall.ai**    | Once you have the Google refresh\_token + OAuth client credentials, call the Recall.ai **Create Calendar** endpoint to register this calendar under that user: `<platform>` = `google_calendar`.                                                                                                                                                                                                                                                                                         | `POST https://us-west-2.recall.ai/api/v2/calendars/` with body including: `oauth_client_id`, `oauth_client_secret`, `oauth_refresh_token`, `platform` = `google_calendar`. ([Recall.ai][2])                                                                 | Store: `calendar_id` (Recall.ai’s id for that user’s calendar), status, any returned fields (like `platform_email` after sync), plus mapping to your `user_id`.       |
+| **5. Webhook Setup / Handling**        | - Set up a webhook endpoint in your backend to receive Recall.ai Calendar V2 webhooks via Svix. <br> - The relevant webhooks are: <br>   • `calendar.update` (for when calendar gets disconnected or its status changes) <br>   • `calendar.sync_events` (when events on the calendar are created/updated/deleted) ([Recall.ai][3])                                                                                                                                                      | —                                                                                                                                                                                                                                                           | Know and store: event   calendar\_id, last\_updated\_ts from webhook; keep state so you know when to re-sync.                                                         |
+| **6. Syncing Events**                  | - Upon receiving `calendar.sync_events`, issue call to Recall.ai to **List Calendar Events** with parameter `updated_at__gte` using the `last_updated_ts` in webhook. <br> - Filter for events relevant to your bot scheduling logic (e.g., skip if `is_deleted`, skip private events, etc.). <br> - Also use `Retrieve Calendar Event` endpoint if you want full details of a single event.                                                                                             | `GET https://us-west-2.recall.ai/api/v2/calendar-events/?calendar_id=<id>&updated_at__gte=<ts>` <br> `GET https://us-west-2.recall.ai/api/v2/calendar-events/{event_id}` ([Recall.ai][4])                                                                   | Store metadata: event\_id, start\_time, meeting\_url, attendees, etc., and whether you've already scheduled a bot for it.                                             |
+| **7. Bot Scheduling**                  | Two approaches: <br> • **Recall-Managed Scheduling**: Use Recall.ai’s built-in scheduling endpoint to assign bots for events; let Recall handle deduplication, etc. <br> • **Self-Managed Scheduling**: You schedule bots via Recall.ai’s `Create Bot` (or `Schedule Bot For Calendar Event`) and manage relationships (which bots per event, avoiding duplicates, managing cancellations). <br> - When events are updated (time changed, cancelled), remove or update bots accordingly. | Recall.ai API endpoints for scheduling bots. In particular: `POST /api/v2/calendar-events/{event_id}/schedule_bot` (if available), or the generic Create Bot API, referencing the event’s meeting\_url & start\_time. (Check Recall.ai docs for exact path) | Keep mapping: event\_id ↔ bot\_id; store state so you can find and delete bots when needed.                                                                           |
+| **8. Error Handling & Disconnection**  | - If Recall.ai calendar status becomes `disconnected` (via `calendar.update` webhook), or Google refresh\_token is revoked / invalid, mark the calendar as disconnected. <br> - Notify user (via UI / email) to reconnect. <br> - Clean up: unschedule bots for future events or disable.                                                                                                                                                                                                | Use `Retrieve Calendar` to check status; Recall.ai will send `calendar.update` webhook. ([Recall.ai][3])                                                                                                                                                    | Update stored status; track reconnection events.                                                                                                                      |
+| **9. UI / Preferences in Your App**    | - Let user see list of upcoming meetings, whether a bot is scheduled. <br> - Let user set preferences: e.g. “skip private events,” “only record meetings with ≥ N attendees,” etc. <br> - Allow toggling per event override (e.g. disable bot for a particular meeting). <br> - Let user reconnect calendar if disconnected.                                                                                                                                                             | —                                                                                                                                                                                                                                                           | Store user preferences; reflect them in the logic that filters events before scheduling bots.                                                                         |
 
 ---
 
-## Sample Flow Code / Pseudocode
+## Sample Data Flow / Pseudocode
 
-Here’s how things might happen in a user signup via SSO → calendar connect → bot scheduling, assuming V2.
+Here’s pseudocode (Node.js / TypeScript) showing core parts:
 
-```js
-// After user signs up/env: you have user.id, email
+```ts
+// Constants
+const RECALL_BASE = "https://us-west-2.recall.ai";
+const RECALL_API_KEY = "8c0933578c0fbc870e520b43432b392aba8c3da9";
 
-// 1. Frontend: user clicks “Connect Google Calendar”
-//    Backend generates a temporary calendar auth token from Recall.ai
-POST /api/recall/calendar/auth-token
-  → call Recall endpoint if using V1
-  → save mapping: your user.id ↔ temp_token
+interface User {
+  id: string;
+  email: string;
+  recallCalendarId?: string;
+  googleRefreshToken?: string;
+  status?: string; // connected / disconnected
+  preferences: {
+    skipPrivateEvents: boolean;
+    minAttendees: number;
+    // etc
+  };
+  // other mappings: event_id → bot_id etc
+}
 
-// 2. Frontend redirect to Google OAuth consent
-Redirect user to
-  https://accounts.google.com/o/oauth2/v2/auth?
-    scope=calendar.events.readonly userinfo.email …
-    client_id=GOOGLE_CLIENT_ID
-    redirect_uri=YOUR_BACKEND_CALLBACK
-    state=JSON.stringify({
-        recall_calendar_auth_token: <temp_token>,
-        google_oauth_redirect_url: <redirect_uri>,
-        success_url: <your_app_success_page>,
-        error_url: <your_app_error_page>
-    })
+// 1. After OAuth callback from Google:
+async function handleGoogleOAuthCallback(user: User, googleCode: string) {
+  // exchange code with Google
+  const { access_token, refresh_token, scope, expires_in } = await googleTokenExchange(googleCode);
 
-// 3. Backend: Google OAuth callback
-- Read `state`, verify temp_token
-- Exchange `code` → access_token + refresh_token
-- Send these (or relevant info) to Recall.ai via their "Connect calendar" API (for V2: Create Calendar) so Recall.ai can store & monitor the calendar
-- Store in your database: calendar_id, status, refresh_token, etc.
+  // Validate scopes include the calendar read (and/or write) you need.
 
-// 4. Webhook setup
-- Your backend subscribes to Recall.ai’s webhook events for calendar.sync_events and calendar.update
-- On `calendar.sync_events`: fetch events via Recall.ai `List Calendar Events` (with filter `updated_at__gte` using last_updated_ts from webhook), then for new events matching your logic, schedule bots via Recall’s Create Bot API (or via calendar integration auto-bot scheduling if V2 supports)
-- On cancelled/deleted events or preference change: remove scheduled bots / stop future bots
+  // Save refresh_token in DB
+  user.googleRefreshToken = refresh_token;
 
-// 5. User preferences UI
-- Let user set things like: skip meetings marked private; skip meetings with <2 attendees; only meetings in certain calendars; custom bot settings per event
-- On preference update, reconcile: look at upcoming scheduled bots and remove those which no longer meet criteria, optionally schedule bots for newly eligible events
+  // Create calendar in Recall.ai
+  const resp = await fetch(`${RECALL_BASE}/api/v2/calendars/`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${RECALL_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      oauth_client_id: GOOGLE_CLIENT_ID,
+      oauth_client_secret: GOOGLE_CLIENT_SECRET,
+      oauth_refresh_token: refresh_token,
+      platform: "google_calendar",
+    }),
+  });
+  const cal = await resp.json();
+  // expected: cal.id, cal.status etc
+  user.recallCalendarId = cal.id;
+  user.status = cal.status; // likely "connected"
 
-// 6. Monitoring & error handling
-- Monitor rates (Recall’s endpoints have rate limits: eg. 60 requests/min for list events etc.) :contentReference[oaicite:27]{index=27}
-- Handle token expiry: if Google refresh token fails, mark calendar disconnected; prompt user to reconnect
-- Handle Recall.ai calendar updates indicating disconnection. :contentReference[oaicite:28]{index=28}
+  // Save in DB
+}
+
+// 2. Webhook receiver for Recall.ai (via Svix)
+async function handleRecallWebhook(reqBody: any) {
+  const { event, data } = reqBody;
+
+  if (event === "calendar.sync_events") {
+    const { calendar_id, last_updated_ts } = data;
+    // find user by calendar_id
+    const user = await findUserByRecallCalendarId(calendar_id);
+    if (!user) { /* log warning */ return; }
+
+    // List calendar events updated since last_updated_ts
+    const eventsResp = await fetch(`${RECALL_BASE}/api/v2/calendar-events/?calendar_id=${calendar_id}&updated_at__gte=${last_updated_ts}`, {
+      headers: {
+        "Authorization": `Bearer ${RECALL_API_KEY}`
+      }
+    });
+    const evData = await eventsResp.json();
+    for (const event of evData.results) {
+      // filter by preferences
+      if (event.is_deleted) {
+        // if we have a bot for this event, delete it
+        await maybeDeleteBot(event);
+      } else if (shouldScheduleBot(event, user.preferences)) {
+        await maybeScheduleBot(event, user);
+      }
+    }
+  }
+  else if (event === "calendar.update") {
+    const { calendar_id } = data;
+    const user = await findUserByRecallCalendarId(calendar_id);
+    if (!user) return;
+    // fetch calendar status
+    const calResp = await fetch(`${RECALL_BASE}/api/v2/calendars/${calendar_id}`, {
+      headers: {
+        "Authorization": `Bearer ${RECALL_API_KEY}`
+      }
+    });
+    const calData = await calResp.json();
+    user.status = calData.status;
+    if (user.status !== "connected") {
+      // unschedule bots for future events, notify user
+      await unscheduleAllFutureBots(user);
+    }
+  }
+}
+
+// 3. Function to schedule bot if not already
+async function maybeScheduleBot(event: any, user: User) {
+  // check if we already have a bot for this event in DB
+  if (await hasBotForEvent(user.id, event.id)) return;
+
+  // get event.start_time, meeting_url etc
+  if (!event.meeting_url) return; // or handle links differently
+
+  const scheduleResp = await fetch(`${RECALL_BASE}/api/v2/calendar-events/${event.id}/schedule_bot`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${RECALL_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      // optional config overrides, e.g. recording_config
+    }),
+  });
+  const scheduleResult = await scheduleResp.json();
+  // store mapping event.id ↔ scheduleResult.bot_id
+}
+
+// 4. Function to delete bot if needed
+async function maybeDeleteBot(event: any) {
+  if (!await hasBotForEvent(...)) return;
+  await fetch(`${RECALL_BASE}/api/v2/calendar-events/${event.id}/schedule_bot`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": `Bearer ${RECALL_API_KEY}`
+    }
+  });
+  // remove mapping from DB
+}
 ```
 
 ---
 
-## Key Recall.ai API / Endpoints You’ll Use
+## Key Recall.ai Endpoints for V2 to Use
 
-Here are the endpoints (mostly V2) and parameters you’ll need.
-
-| Endpoint                                                            | HTTP Method                   | Purpose                                                                                                                                                           | Important Req’d Headers / Params / Responses                                                                                                          |
-| ------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/v2/calendars/`                                           | Create Calendar               | Register a calendar for a user after OAuth                                                                                                                        | Needs `Authorization` (your Recall API Key or workspace token), and info about the OAuth tokens. Returns `calendar_id`, status, etc. ([Recall.ai][6]) |
-| `GET /api/v2/calendars/`                                            | List Calendars                | To see which calendars the user has connected                                                                                                                     | Pagination, possibly filter by user, etc. ([Recall.ai][7])                                                                                            |
-| `GET /api/v2/calendar-events/`                                      | List Calendar Events          | To fetch upcoming / all events; use query params like `updated_at__gte` to do incremental sync; possibly filter by calendar\_id or time windows. ([Recall.ai][8]) |                                                                                                                                                       |
-| Webhooks:                                                           | —                             |                                                                                                                                                                   |                                                                                                                                                       |
-| — `calendar.update`                                                 | Recall → Your backend         | Calendar status changes (e.g. disconnected) → you may need to alert user, etc. ([Recall.ai][4])                                                                   |                                                                                                                                                       |
-| — `calendar.sync_events`                                            | Recall → Your backend         | When events in calendar change → triggers your update logic; includes `calendar_id` and `last_updated_ts`. ([Recall.ai][4])                                       |                                                                                                                                                       |
-| (for V1) `Get Calendar Auth Token`                                  | probably a Recall.ai endpoint | To get the `recallcalendarauthtoken` that you’ll use for V1 flows. ([Recall.ai][2])                                                                               |                                                                                                                                                       |
-| (for V1) `List Calendar Meetings` / “List Calendar Events” under V1 | GET                           | To fetch events under V1, using auth token in header `x-recallcalendarauthtoken`. ([Recall.ai][2])                                                                |                                                                                                                                                       |
-| Recording Preferences / Update Bot Config                           | PUT / PATCH                   | To update what kinds of events should be recorded, which bot config you want (if supported). Applies mostly in V2, and limited in V1. ([Recall.ai][2])            |                                                                                                                                                       |
+| Endpoint                                                                      | Method                                                                     | Purpose                                                                                                                     | Notes / Rate Limits |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `POST /api/v2/calendars/`                                                     | Create Calendar                                                            | Register a Google Calendar for a user (with refresh\_token + OAuth client creds) so Recall.ai can sync it. ([Recall.ai][2]) |                     |
+| `GET /api/v2/calendars/{calendar_id}`                                         | Retrieve Calendar                                                          | Get status, metadata (platform\_email etc.) of a calendar                                                                   |                     |
+| `PATCH /api/v2/calendars/{calendar_id}`                                       | Update Calendar                                                            | To update OAuth credentials (if client\_secret changed), or possibly to reconnect after revocation. ([Recall.ai][5])        |                     |
+| `DELETE /api/v2/calendars/{calendar_id}`                                      | Delete Calendar                                                            | To remove / stop using Recall.ai calendar; all bots for future events are unscheduled. ([Recall.ai][5])                     |                     |
+| `GET /api/v2/calendar-events/?calendar_id=...&updated_at__gte=...`            | List Calendar Events                                                       | To sync events (new/updated/deleted). Rate limit: 60 requests/min per workspace. ([Recall.ai][4])                           |                     |
+| `GET /api/v2/calendar-events/{event_id}`                                      | Retrieve Calendar Event                                                    | To get full details of one event, if needed.                                                                                |                     |
+| `POST /api/v2/calendar-events/{event_id}/schedule_bot`                        | Schedule Bot for that event                                                | If using self-managed scheduling. Alternatively, if you use Recall’s managed scheduling, this may be handled differently.   |                     |
+| `DELETE /api/v2/calendar-events/{event_id}/schedule_bot`                      | Remove Bot from Calendar Event                                             | For cancellations or manual overrides.                                                                                      |                     |
+| Webhooks via Svix: <br>   • `calendar.sync_events` <br>   • `calendar.update` | Serve these to know when to sync or handle disconnection. ([Recall.ai][3]) |                                                                                                                             |                     |
 
 ---
 
-## Edge Cases & Notes
+## Important Behavior, Limits, and Edge Cases
 
-* **Events with no display names / missing attendee info**: Google sometimes won’t populate `displayName` for attendees, especially organizers, etc. Don’t rely on it always being present. ([Recall.ai][5])
-* **Token expiry / invalid grant**: If your Google OAuth client is in “testing” mode, tokens expire in 7 days. Once in production, tokens persist unless explicitly revoked. ([Recall.ai][5])
-* **Rate limits**: Recall.ai limits some endpoints (e.g. listing calendar events) to 60 requests/min per workspace. ([Recall.ai][8])
-* **Calendar disconnection**: Could be from user revoking permissions, changing password, removing your app. Ensure you cover that path and clear out local state / prompt reconnect. Webhooks help here. ([Recall.ai][4])
-* **Bot deduplication**: Don’t schedule multiple bots for same event accidentally (especially if calendar reconnect, repeated sync, etc.). Maintain idempotency — use event IDs, your stored state to detect duplicates.
-* **Meeting link types**: Some meetings might have non-Google Meet links; ensure bot can handle joining links across platforms if your use case spans them.
-
----
-
-## Putting It All Together: High-Level Architecture
-
-Here’s a suggested component layout:
-
-```
-Front End (Vite)                Backend API (Your servers)
----------------                 --------------------------
-- SSO login/signup              - Persist user identity
-- “Connect Calendar” UI        - Generate temp token / state
-- Show upcoming meetings        - Callback endpoint for Google OAuth
-- Preferences UI                - Store OAuth tokens, calendar_id
-                                - Recall.ai API wrappers
-                                - Webhook receiver
-                                - Bot scheduling logic (based on events + preferences)
-                                - Error handling, token refresh
-                                - Notifications to user (if disconnected etc.)
-```
-
-You might also have a scheduler/cron job or message queue to handle event syncs in case webhooks are delayed or dropped, or for fallback.
+* **Data retention & event history**: Recall retains calendar events for up to 60 days in the past. Events older than that may be dropped. ([Recall.ai][6])
+* **Sync window / how far into future events are available**: Usually you can see upcoming meetings in future; look at how far into future Recall populates events. (Calendar integration FAQ notes “how far into the future are calendar events synced” is \~4 weeks for some settings) ([Recall.ai][6])
+* **Rate limits**: For example, `List Calendar Events` is limited to \~60 requests/min per workspace. Make sure your system batches or throttles accordingly. ([Recall.ai][4])
+* **Recurring events**: For recurring events, grouping by `recurringEventId` (Google) / `seriesMasterId` (Outlook) helps keep consistency. These are present in the `raw` field of calendar event object. ([Recall.ai][5])
+* **Platform email**: `platform_email` field in calendar may be null immediately after calendar creation — because sync is asynchronous. If you need this email (Google account email), you may get it from the Google OAuth info directly. ([Recall.ai][5])
+* **Invalid scope / user didn’t grant correct permissions** → calendar connection will fail. Handle errors gracefully; prompt user to reconnect. ([Recall.ai][5])
+* **Calendar disconnection**: Happens when refresh\_token revoked or user removes app. Recall sends `calendar.update` webhook. Also if you call Delete Calendar, calendar is removed and bots unscheduled. ([Recall.ai][3])
 
 ---
 
-## Example: What Happens When a New Meeting is Created
+## Security & Best Practices
 
-1. User connects calendar via OAuth → Recall.ai registers calendar (in V2) and returns `calendar_id`.
-
-2. Recall.ai sends a `calendar.sync_events` webhook with `last_updated_ts`.
-
-3. Your backend receives the webhook, fetches events via `GET /api/v2/calendar-events/?calendar_id=<id>&updated_at__gte=<ts>`.
-
-4. Among the returned events, find the new meeting(s) that match user’s preferences.
-
-5. For each such meeting, schedule a bot:
-
-   * Either use Recall.ai’s auto-bot scheduling via calendar integration (if behavior in V2 supports that you configure)
-   * Or explicitly call Recall.ai Meeting Bot API to create a bot with `join_at` set to just before meeting start.
-
-6. Save details of the scheduled bot in your DB (bot\_id, meeting\_id, event\_id, etc.) for tracking.
-
-7. If event gets cancelled or modified later (detected via another webhook or sync), remove that scheduled bot or modify accordingly.
+* **Keep Recall API Key secret**: Only in backend services. Do not send it to frontend.
+* **Validate webhooks**: Verify signature from Svix (or whatever signing mechanism Recall.ai uses) so that malicious calls can’t trigger your event logic.
+* **Store refresh tokens securely**, encrypted at rest.
+* **Handle retries, idempotency**: Webhooks may be retried; event listing/pagination may return same events; ensure your logic is idempotent (don’t double-schedule bots).
+* **Logging & alerting**: For failed bot scheduling, token revocations, webhooks delivery failures.
 
 ---
 
-If you like, I can put together a **ready-to-use template repository structure / example code** in TypeScript/Node + Vite showing this flow. Do you want that?
+## Example Summary Workflow
 
-[1]: https://docs.recall.ai/docs/calendar-integration?utm_source=chatgpt.com "Choosing an integration: Calendar V1 vs V2"
-[2]: https://docs.recall.ai/docs/calendar-v1-integration-guide?utm_source=chatgpt.com "Integration Guide"
-[3]: https://docs.recall.ai/docs/calendar-v1-google-calendar?utm_source=chatgpt.com "Google Calendar"
-[4]: https://docs.recall.ai/docs/calendar-v2-webhooks?utm_source=chatgpt.com "Calendar V2 Webhooks"
-[5]: https://docs.recall.ai/docs/calendar-v2-google-calendar?utm_source=chatgpt.com "Google Calendar"
-[6]: https://docs.recall.ai/v1.10/reference/calendars_create?utm_source=chatgpt.com "Create Calendar"
-[7]: https://docs.recall.ai/reference/calendars_list?utm_source=chatgpt.com "List Calendars"
-[8]: https://docs.recall.ai/reference/calendar_events_list?utm_source=chatgpt.com "List Calendar Events"
-[9]: https://docs.recall.ai/docs/calendar-v1-faq?utm_source=chatgpt.com "Calendar V1 FAQ"
+Here’s the full flow in a user’s lifecycle:
+
+1. User signs up (via SSO).
+2. User clicks “Connect Google Calendar.”
+3. Redirect → Google OAuth → user grants permissions. Callback returns code.
+4. Backend exchanges code → gets refresh\_token etc.
+5. Backend calls Recall.ai `POST /api/v2/calendars/` using API Key + OAuth client creds + refresh\_token. Saves `calendar_id`.
+6. Recall.ai asynchronously syncs platform\_email etc.
+7. Set up webhooks (Svix): you receive `calendar.update` (calendar connected) then possibly `calendar.sync_events` initial sync.
+8. On `calendar.sync_events`, fetch events updated, filter by your logic → schedule bots.
+9. Future changes (meeting cancelled / moved / user revokes access) trigger either `calendar.sync_events` or `calendar.update` so you adjust: delete bots for cancelled events, update bots for modified ones.
+10. User can disconnect or your backend can call Delete Calendar if needed.
+
+---
+
+If you want, I can generate a **complete code template / sample repo** (backend + frontend) using your API key and us-west-2 region, with configuration stubs & environment variables, to get you started.
+
+[1]: https://docs.recall.ai/docs/regions?utm_source=chatgpt.com "Regions"
+[2]: https://docs.recall.ai/docs/calendar-v2-integration-guide?utm_source=chatgpt.com "Integration Guide"
+[3]: https://docs.recall.ai/docs/calendar-v2-webhooks?utm_source=chatgpt.com "Calendar V2 Webhooks"
+[4]: https://docs.recall.ai/reference/calendar_events_list?utm_source=chatgpt.com "List Calendar Events"
+[5]: https://docs.recall.ai/docs/calendar-v2-faq?utm_source=chatgpt.com "Calendar V2 FAQ"
+[6]: https://docs.recall.ai/docs/calendar-integration-faq?utm_source=chatgpt.com "Calendar Integration FAQ"

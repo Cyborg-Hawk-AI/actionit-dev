@@ -6,7 +6,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { RecallSettings } from '@/components/settings/RecallSettings';
 import { CalendarSettings } from '@/components/settings/CalendarSettings';
 import { OAuthTestPanel } from '@/components/testing/OAuthTestPanel';
-import RecallIntegration from '@/components/RecallIntegration';
+import { RecallCalendarStatus } from '@/components/RecallCalendarStatus';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Palette } from 'lucide-react';
 
@@ -85,7 +85,7 @@ const Settings = () => {
       
       {/* Recall.ai Integration */}
       <div className="mt-8">
-        <RecallIntegration />
+        <RecallCalendarStatus />
       </div>
     </div>
   );
