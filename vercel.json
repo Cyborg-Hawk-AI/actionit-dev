@@ -7,7 +7,19 @@
   },
   "rewrites": [
     {
-      "source": "/((?!api).*)",
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/auth/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings",
       "destination": "/index.html"
     }
   ],
