@@ -5,10 +5,16 @@ import { encryptWithKMS, decryptWithKMS, type EncryptedToken } from './aws-kms';
 // DynamoDB Configuration
 const dynamoClient = new DynamoDBClient({
   region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  },
+  // For role-based authentication, AWS SDK will automatically use:
+  // 1. Environment variables (if available)
+  // 2. Instance metadata (for EC2/Lambda)
+  // 3. IAM roles (for Vercel/other services)
+  credentials: process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY 
+    ? {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      }
+    : undefined, // Let AWS SDK auto-detect credentials
 });
 
 const docClient = DynamoDBDocumentClient.from(dynamoClient);

@@ -31,8 +31,8 @@ export const kmsClient = new KMSClient(awsConfig);
 
 // Configuration constants
 export const CONFIG = {
-  GOOGLE_OAUTH_SECRET_NAME: process.env.GOOGLE_OAUTH_SECRET_NAME || 'axnt/google-oauth',
-  KMS_KEY_ALIAS: process.env.KMS_KEY_ALIAS || 'alias/axnt-oauth',
+  GOOGLE_OAUTH_SECRET_NAME: process.env.GOOGLE_OAUTH_SECRET_NAME || 'axnt-google-auth',
+  KMS_KEY_ALIAS: process.env.KMS_KEY_ALIAS || 'alias/axnt-secrets-decrypt',
   APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
 } as const;
 
@@ -41,6 +41,13 @@ export interface GoogleOAuthConfig {
   client_id: string;
   client_secret: string;
   redirect_uri: string;
+}
+
+// Types for the actual secret structure in AWS
+export interface AxntGoogleAuthSecret {
+  'axntt-client-id': string;
+  'axnt-secret': string;
+  'axnt-redirect-uri': string;
 }
 
 export interface EncryptedToken {

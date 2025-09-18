@@ -1,5 +1,5 @@
 import { GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-import { secretsManagerClient, CONFIG, type GoogleOAuthConfig } from './aws-config';
+import { secretsManagerClient, CONFIG, type GoogleOAuthConfig, type AxntGoogleAuthSecret } from './aws-config';
 
 /**
  * Retrieves Google OAuth configuration from AWS Secrets Manager
@@ -26,13 +26,20 @@ export async function getGoogleOAuthConfig(): Promise<GoogleOAuthConfig> {
       throw new Error('No secret string found in AWS Secrets Manager');
     }
 
-    const config = JSON.parse(response.SecretString) as GoogleOAuthConfig;
-    console.log('[AWS Secrets] Parsed config:', {
-      hasClientId: !!config.client_id,
-      hasClientSecret: !!config.client_secret,
-      hasRedirectUri: !!config.redirect_uri,
-      redirectUri: config.redirect_uri,
+    const secretData = JSON.parse(response.SecretString) as AxntGoogleAuthSecret;
+    console.log('[AWS Secrets] Parsed secret data:', {
+      hasClientId: !!secretData['axntt-client-id'],
+      hasClientSecret: !!secretData['axnt-secret'],
+      hasRedirectUri: !!secretData['axnt-redirect-uri'],
+      redirectUri: secretData['axnt-redirect-uri'],
     });
+    
+    // Convert to standard format
+    const config: GoogleOAuthConfig = {
+      client_id: secretData['axntt-client-id'],
+      client_secret: secretData['axnt-secret'],
+      redirect_uri: secretData['axnt-redirect-uri'],
+    };
     
     // Validate required fields
     if (!config.client_id || !config.client_secret || !config.redirect_uri) {
