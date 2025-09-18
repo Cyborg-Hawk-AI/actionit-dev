@@ -9,8 +9,35 @@ FUNCTION_NAME="axnt-recall-integration"
 REGION="us-east-1"
 ROLE_NAME="axnt-recall-lambda-role"
 POLICY_NAME="axnt-recall-lambda-policy"
+KMS_KEY_ALIAS="axnt-encryption-key"
+KMS_KEY_DESCRIPTION="KMS key for Recall.ai integration encryption"
 
 echo "🚀 Deploying Recall.ai Integration Lambda Function..."
+
+# Create KMS key for encryption
+echo "🔐 Creating KMS key for encryption..."
+KMS_KEY_ID=$(aws kms describe-key --key-id "alias/$KMS_KEY_ALIAS" --region $REGION --query 'KeyMetadata.KeyId' --output text 2>/dev/null || echo "")
+
+if [ -z "$KMS_KEY_ID" ]; then
+    echo "🔐 Creating new KMS key..."
+    KMS_KEY_ID=$(aws kms create-key \
+        --description "$KMS_KEY_DESCRIPTION" \
+        --key-usage ENCRYPT_DECRYPT \
+        --key-spec SYMMETRIC_DEFAULT \
+        --region $REGION \
+        --query 'KeyMetadata.KeyId' \
+        --output text)
+    
+    echo "🔐 Creating KMS key alias..."
+    aws kms create-alias \
+        --alias-name "alias/$KMS_KEY_ALIAS" \
+        --target-key-id $KMS_KEY_ID \
+        --region $REGION
+    
+    echo "✅ KMS key created: $KMS_KEY_ID"
+else
+    echo "✅ KMS key already exists: $KMS_KEY_ID"
+fi
 
 # Create deployment package
 echo "📦 Creating deployment package..."
@@ -54,36 +81,44 @@ else
     echo "🔐 Creating IAM policy for Lambda..."
     aws iam create-policy \
         --policy-name $POLICY_NAME \
-        --policy-document '{
-            "Version": "2012-10-17",
-            "Statement": [
+        --policy-document "{
+            \"Version\": \"2012-10-17\",
+            \"Statement\": [
                 {
-                    "Effect": "Allow",
-                    "Action": [
-                        "logs:CreateLogGroup",
-                        "logs:CreateLogStream",
-                        "logs:PutLogEvents"
+                    \"Effect\": \"Allow\",
+                    \"Action\": [
+                        \"logs:CreateLogGroup\",
+                        \"logs:CreateLogStream\",
+                        \"logs:PutLogEvents\"
                     ],
-                    "Resource": "arn:aws:logs:*:*:*"
+                    \"Resource\": \"arn:aws:logs:*:*:*\"
                 },
                 {
-                    "Effect": "Allow",
-                    "Action": [
-                        "secretsmanager:GetSecretValue"
+                    \"Effect\": \"Allow\",
+                    \"Action\": [
+                        \"secretsmanager:GetSecretValue\"
                     ],
-                    "Resource": "arn:aws:secretsmanager:*:*:secret:axnt-recall-google-oauth*"
+                    \"Resource\": \"arn:aws:secretsmanager:*:*:secret:axnt-recall-google-oauth*\"
                 },
                 {
-                    "Effect": "Allow",
-                    "Action": [
-                        "kms:Encrypt",
-                        "kms:Decrypt",
-                        "kms:GenerateDataKey"
+                    \"Effect\": \"Allow\",
+                    \"Action\": [
+                        \"kms:Encrypt\",
+                        \"kms:Decrypt\",
+                        \"kms:GenerateDataKey\",
+                        \"kms:DescribeKey\"
                     ],
-                    "Resource": "*"
+                    \"Resource\": \"arn:aws:kms:$REGION:*:key/$KMS_KEY_ID\"
+                },
+                {
+                    \"Effect\": \"Allow\",
+                    \"Action\": [
+                        \"kms:Decrypt\"
+                    ],
+                    \"Resource\": \"arn:aws:kms:$REGION:*:alias/$KMS_KEY_ALIAS\"
                 }
             ]
-        }' || echo "Policy may already exist"
+        }" || echo "Policy may already exist"
     
     # Attach policy to role
     echo "🔐 Attaching policy to role..."
@@ -110,9 +145,9 @@ else
         --timeout 60 \
         --memory-size 256 \
         --region $REGION \
-        --environment Variables='{
-            "KMS_KEY_ID": "alias/axnt-encryption-key"
-        }'
+        --environment Variables="{
+            \"KMS_KEY_ID\": \"alias/$KMS_KEY_ALIAS\"
+        }"
     
     echo "✅ Lambda function created successfully"
 fi
@@ -128,8 +163,11 @@ echo "   - Runtime: Python 3.12"
 echo "   - Handler: lambda_function.lambda_handler"
 echo "   - Timeout: 60 seconds"
 echo "   - Memory: 256 MB"
+echo "   - KMS Key ID: $KMS_KEY_ID"
+echo "   - KMS Key Alias: alias/$KMS_KEY_ALIAS"
 echo ""
 echo "🔧 Next steps:"
 echo "   1. Set the RECALL_LAMBDA_FUNCTION_NAME environment variable in Vercel"
 echo "   2. Test the Lambda function with a sample event"
 echo "   3. Monitor CloudWatch logs for execution details"
+echo "   4. Verify KMS key permissions for encryption/decryption"

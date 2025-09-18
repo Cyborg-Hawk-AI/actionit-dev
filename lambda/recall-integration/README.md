@@ -25,7 +25,7 @@ Vercel App → API Route → Lambda Function → Recall.ai API
 - AWS CLI configured with appropriate permissions
 - Recall.ai API key stored in AWS Secrets Manager
 - Google OAuth credentials stored in AWS Secrets Manager
-- KMS key for encryption (optional)
+- KMS key for encryption (created automatically by deploy script)
 
 ## Deployment
 
@@ -50,8 +50,19 @@ The Lambda function uses the following environment variables:
 The Lambda function requires the following permissions:
 
 - `secretsmanager:GetSecretValue` for the `axnt-recall-google-oauth` secret
-- `kms:Encrypt`, `kms:Decrypt`, `kms:GenerateDataKey` for encryption
+- `kms:Encrypt`, `kms:Decrypt`, `kms:GenerateDataKey`, `kms:DescribeKey` for encryption
 - `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents` for logging
+
+## KMS Key
+
+The deployment script automatically creates a KMS key with the following specifications:
+
+- **Key Type**: Symmetric (AES-256)
+- **Usage**: Encrypt/Decrypt
+- **Alias**: `axnt-encryption-key`
+- **Description**: "KMS key for Recall.ai integration encryption"
+
+The Lambda function uses this key for encrypting sensitive data before storage or transmission.
 
 ## Input Format
 
@@ -113,7 +124,18 @@ The function handles various error scenarios:
 
 ## Testing
 
-Test the Lambda function locally:
+### Automated Testing
+
+Use the provided test script:
+
+```bash
+cd lambda/recall-integration
+./test-lambda.sh
+```
+
+### Manual Testing
+
+Test the Lambda function manually:
 
 ```bash
 # Create test event
@@ -134,8 +156,16 @@ aws lambda invoke \
   response.json
 
 # Check response
-cat response.json
+cat response.json | jq '.'
 ```
+
+### Testing with Real Credentials
+
+For production testing, ensure you have:
+
+1. Valid Google OAuth credentials in AWS Secrets Manager
+2. Valid Recall.ai API key in the secret
+3. Proper IAM permissions for the Lambda function
 
 ## Troubleshooting
 

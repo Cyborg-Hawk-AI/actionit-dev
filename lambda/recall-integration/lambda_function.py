@@ -15,6 +15,8 @@ RECALL_BASE = "https://us-west-2.recall.ai"
 SECRET_NAME = "axnt-recall-google-oauth"
 KMS_KEY_ID = os.environ.get('KMS_KEY_ID', 'alias/axnt-encryption-key')
 
+print(f"[Lambda] KMS Key ID from environment: {KMS_KEY_ID}")
+
 def lambda_handler(event, context):
     """
     AWS Lambda function to handle Recall.ai integration
