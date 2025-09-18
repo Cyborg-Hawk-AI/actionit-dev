@@ -1,4 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers
@@ -23,22 +24,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       HAS_SECRET_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
     });
 
-    // Try to import AWS libraries
-    let getCachedGoogleOAuthConfig;
-    try {
-      const awsSecrets = await import('../../src/lib/aws-secrets');
-      getCachedGoogleOAuthConfig = awsSecrets.getCachedGoogleOAuthConfig;
-      console.log('[API] Successfully imported AWS secrets module');
-    } catch (importError) {
-      console.error('[API] Failed to import AWS secrets module:', importError);
-      return res.status(500).json({ 
-        error: 'Failed to import AWS modules',
-        details: importError instanceof Error ? importError.message : 'Unknown import error'
-      });
+    // Initialize AWS Secrets Manager client
+    const secretsManagerClient = new SecretsManagerClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY 
+        ? {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+          }
+        : undefined,
+    });
+
+    console.log('[API] AWS client initialized');
+
+    // Get OAuth config from AWS Secrets Manager
+    const secretName = process.env.GOOGLE_OAUTH_SECRET_NAME || 'axnt-google-auth';
+    console.log('[API] Retrieving secret:', secretName);
+
+    const command = new GetSecretValueCommand({
+      SecretId: secretName,
+    });
+
+    const response = await secretsManagerClient.send(command);
+    console.log('[API] Secret retrieved successfully');
+
+    if (!response.SecretString) {
+      throw new Error('No secret string found in AWS Secrets Manager');
     }
 
-    const config = await getCachedGoogleOAuthConfig();
-    console.log('[API] OAuth config retrieved:', {
+    const secretData = JSON.parse(response.SecretString);
+    console.log('[API] Secret data parsed:', {
+      hasClientId: !!secretData['axntt-client-id'],
+      hasClientSecret: !!secretData['axnt-secret'],
+      hasRedirectUri: !!secretData['axnt-redirect-uri'],
+    });
+
+    // Convert to standard format
+    const config = {
+      client_id: secretData['axntt-client-id'],
+      client_secret: secretData['axnt-secret'],
+      redirect_uri: secretData['axnt-redirect-uri'],
+    };
+
+    // Validate required fields
+    if (!config.client_id || !config.client_secret || !config.redirect_uri) {
+      throw new Error('Invalid OAuth configuration: missing required fields');
+    }
+
+    console.log('[API] OAuth config validated:', {
       hasClientId: !!config.client_id,
       hasClientSecret: !!config.client_secret,
       redirectUri: config.redirect_uri,
